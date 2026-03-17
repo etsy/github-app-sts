@@ -96,5 +96,9 @@ type AppToken struct {
 }
 
 func (t *AppToken) Expired(now time.Time) bool {
+	if t == nil {
+		return true
+	}
+
 	return t.exp.Sub(now) > (60 * time.Second)
 }

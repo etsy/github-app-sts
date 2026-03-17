@@ -98,5 +98,9 @@ type InstallationToken struct {
 }
 
 func (t *InstallationToken) Expired(now time.Time) bool {
+	if t == nil {
+		return true
+	}
+
 	return t.ExpiresAt.Sub(now) > (30 * time.Minute)
 }
