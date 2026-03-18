@@ -2,6 +2,8 @@ module github.com/ericnorris/github-app-sts
 
 go 1.25.5
 
+require gopkg.in/yaml.v3 v3.0.1
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect

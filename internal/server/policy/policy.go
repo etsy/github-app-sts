@@ -19,6 +19,10 @@ type Loader struct {
 	orgPolicyRepo string
 }
 
+func NewLoader(reader FileReader, orgPolicyRepo string) *Loader {
+	return &Loader{reader, orgPolicyRepo}
+}
+
 func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name string) (*Policy, error) {
 	path := fmt.Sprintf(".github/sts/%s.yaml", name)
 
