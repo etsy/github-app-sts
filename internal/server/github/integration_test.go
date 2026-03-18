@@ -1,6 +1,7 @@
 package github_test
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"testing"
@@ -56,7 +57,7 @@ func TestFileReaderIntegration(t *testing.T) {
 		t.Fatalf("reading file: %v", err)
 	}
 
-	if content != FileReaderTestContent {
+	if !bytes.Equal(content, []byte(FileReaderTestContent)) {
 		t.Errorf("got %q, want %q", content, FileReaderTestContent)
 	}
 }
