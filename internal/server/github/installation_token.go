@@ -10,7 +10,11 @@ import (
 	"time"
 )
 
-type InstallationTokenSource struct {
+type InstallationTokenSource interface {
+	Token(ctx context.Context) (*InstallationToken, error)
+}
+
+type installationTokenSource struct {
 	appTokenSource *AppTokenSource
 	installationID string
 	client         *http.Client
@@ -19,15 +23,15 @@ type InstallationTokenSource struct {
 	token *InstallationToken
 }
 
-func NewInstallationTokenSource(a *AppTokenSource, installationID string, client *http.Client) *InstallationTokenSource {
+func NewInstallationTokenSource(a *AppTokenSource, installationID string, client *http.Client) InstallationTokenSource {
 	if client == nil {
 		client = http.DefaultClient
 	}
 
-	return &InstallationTokenSource{appTokenSource: a, installationID: installationID, client: client}
+	return &installationTokenSource{appTokenSource: a, installationID: installationID, client: client}
 }
 
-func (i *InstallationTokenSource) Token(ctx context.Context) (*InstallationToken, error) {
+func (i *installationTokenSource) Token(ctx context.Context) (*InstallationToken, error) {
 	now := time.Now()
 
 	i.mutex.Lock()
@@ -48,7 +52,7 @@ func (i *InstallationTokenSource) Token(ctx context.Context) (*InstallationToken
 	return i.token, nil
 }
 
-func (i *InstallationTokenSource) generateToken(ctx context.Context) (*InstallationToken, error) {
+func (i *installationTokenSource) generateToken(ctx context.Context) (*InstallationToken, error) {
 	appToken, err := i.appTokenSource.Token(ctx)
 
 	if err != nil {

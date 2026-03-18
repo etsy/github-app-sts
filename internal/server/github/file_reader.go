@@ -17,14 +17,16 @@ const (
 	fileCacheTTL     = 1 * time.Minute
 )
 
+var getNow = time.Now
+
 type FileReader struct {
-	tokenSource *InstallationTokenSource
+	tokenSource InstallationTokenSource
 	client      *http.Client
 
 	cache *lru.Cache[string, fileCacheEntry]
 }
 
-func NewFileReader(tokenSource *InstallationTokenSource, client *http.Client) *FileReader {
+func NewFileReader(tokenSource InstallationTokenSource, client *http.Client) *FileReader {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -37,7 +39,7 @@ func NewFileReader(tokenSource *InstallationTokenSource, client *http.Client) *F
 
 func (f *FileReader) ReadFile(ctx context.Context, owner, repo, path string) ([]byte, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
-	now := time.Now()
+	now := getNow()
 
 	cacheEntry, _ := f.cache.Get(url)
 
