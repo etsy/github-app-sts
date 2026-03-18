@@ -102,6 +102,23 @@ type Policy struct {
 	Repositories []string
 }
 
+func (p *Policy) EvaluateClaims(claims map[string]any) (bool, error) {
+	if p.Claims == nil {
+		return true, nil
+	}
+
+	out, _, err := p.Claims.Eval(map[string]any{
+		"claims": claims,
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("could not evaluate 'claims' expression: %w", err)
+	}
+
+	// SAFETY: we've enforced that this must be a bool in the newPolicy method.
+	return out.Value().(bool), nil
+}
+
 func newPolicy(
 	appID int64,
 	issuer string,
