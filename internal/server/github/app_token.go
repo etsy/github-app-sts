@@ -51,7 +51,7 @@ func (a *AppTokenSource) generateToken(ctx context.Context, now time.Time) (*App
 	// "The time must be no more than 10 minutes into the future."
 	exp := now.Add(540 * time.Second)
 
-	// NOTE: this is infallible
+	// SAFETY: this is infallible.
 	headerJSON, _ := json.Marshal(struct {
 		Type      string `json:"typ"`
 		Algorithm string `json:"alg"`
@@ -60,7 +60,7 @@ func (a *AppTokenSource) generateToken(ctx context.Context, now time.Time) (*App
 		"RS256",
 	})
 
-	// NOTE: this is infallible
+	// SAFETY: this is infallible.
 	claimsJSON, _ := json.Marshal(struct {
 		IssuedAt       int64  `json:"iat"`
 		ExpirationTime int64  `json:"exp"`

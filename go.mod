@@ -48,5 +48,6 @@ require (
 require (
 	cloud.google.com/go/kms v1.26.0
 	github.com/google/cel-go v0.27.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	golang.org/x/crypto v0.49.0 // indirect
 )

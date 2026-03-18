@@ -5,14 +5,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-// Maximum allowed size of a file: 1 MB.
-const maxResponseBytes = 1 * 1024 * 1024
+const (
+	// Maximum allowed size of a file: 1 MB.
+	maxResponseBytes = 1 * 1024 * 1024
+	fileCacheSize    = 1000
+	fileCacheTTL     = 1 * time.Minute
+)
 
 type FileReader struct {
 	tokenSource *InstallationTokenSource
 	client      *http.Client
+
+	cache *lru.Cache[string, fileCacheEntry]
 }
 
 func NewFileReader(tokenSource *InstallationTokenSource, client *http.Client) *FileReader {
@@ -20,32 +29,55 @@ func NewFileReader(tokenSource *InstallationTokenSource, client *http.Client) *F
 		client = http.DefaultClient
 	}
 
-	return &FileReader{tokenSource, client}
+	// SAFETY: allocating with a positive integer is infallible.
+	lru, _ := lru.New[string, fileCacheEntry](fileCacheSize)
+
+	return &FileReader{tokenSource, client, lru}
 }
 
 func (f *FileReader) ReadFile(ctx context.Context, owner, repo, path string) ([]byte, error) {
-	token, err := f.tokenSource.Token(ctx)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
+	now := time.Now()
 
-	if err != nil {
+	cacheEntry, _ := f.cache.Get(url)
+
+	if !cacheEntry.Expired(now) {
+		return cacheEntry.content, nil
+	}
+
+	if err := f.readFile(ctx, url, &cacheEntry); err != nil {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
+	cacheEntry.fetched = now
+
+	f.cache.Add(url, cacheEntry)
+
+	return cacheEntry.content, nil
+}
+
+func (f *FileReader) readFile(ctx context.Context, url string, entry *fileCacheEntry) error {
+	token, err := f.tokenSource.Token(ctx)
+
+	if err != nil {
+		return err
+	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	request.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	request.Header.Set("Accept", "application/vnd.github.raw+json") // This ensures GitHub returns the raw content
 	request.Header.Add("X-GitHub-Api-Version", "2022-11-28")
+	request.Header.Set("If-None-Match", entry.etag)
 
 	response, err := f.client.Do(request)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch file content: %w", err)
+		return fmt.Errorf("could not fetch file content: %w", err)
 	}
 
 	defer response.Body.Close()
@@ -53,12 +85,29 @@ func (f *FileReader) ReadFile(ctx context.Context, owner, repo, path string) ([]
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes))
 
 	if err != nil {
-		return nil, fmt.Errorf("could read response body from GitHub: %w", err)
+		return fmt.Errorf("could read response body from GitHub: %w", err)
+	}
+
+	if response.StatusCode == http.StatusNotModified {
+		return nil
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from GitHub API (%d): %s", response.StatusCode, body)
+		return fmt.Errorf("unexpected status code from GitHub API (%d): %s", response.StatusCode, body)
 	}
 
-	return body, nil
+	entry.content = body
+	entry.etag = response.Header.Get("ETag")
+
+	return nil
+}
+
+type fileCacheEntry struct {
+	content []byte
+	etag    string
+	fetched time.Time
+}
+
+func (f *fileCacheEntry) Expired(now time.Time) bool {
+	return now.Sub(f.fetched) > fileCacheTTL
 }
