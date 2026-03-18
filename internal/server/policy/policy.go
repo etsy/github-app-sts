@@ -50,7 +50,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name str
 		}
 	}
 
-	return newPolicy(
+	return NewPolicy(
 		rp.AppID,
 		rp.Issuer,
 		rp.Subject,
@@ -82,7 +82,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string)
 		return nil, fmt.Errorf("could not parse organization policy: %w", err)
 	}
 
-	return newPolicy(
+	return NewPolicy(
 		op.AppID,
 		op.Issuer,
 		op.Subject,
@@ -115,11 +115,11 @@ func (p *Policy) EvaluateClaims(claims map[string]any) (bool, error) {
 		return false, fmt.Errorf("could not evaluate 'claims' expression: %w", err)
 	}
 
-	// SAFETY: we've enforced that this must be a bool in the newPolicy method.
+	// SAFETY: we've enforced that this must be a bool in the NewPolicy method.
 	return out.Value().(bool), nil
 }
 
-func newPolicy(
+func NewPolicy(
 	appID int64,
 	issuer string,
 	subject string,
