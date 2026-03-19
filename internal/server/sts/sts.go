@@ -22,8 +22,8 @@ func (e *ValidationError) Error() string { return e.message }
 func (e *ValidationError) Unwrap() error { return e.cause }
 
 type Service struct {
-	verifier *oidc.Verifier
-	loader   *policy.Loader
+	verifier tokenVerifier
+	loader   policyLoader
 
 	apps map[int64]github.InstallationTokenSource
 }
@@ -80,6 +80,16 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 	return tokenSource.Token(ctx, pol.Repositories, pol.Permissions)
 }
 
+type tokenVerifier interface {
+	ExtractIssuer(token string) (string, error)
+	Verify(ctx context.Context, issuer, token string, p *policy.Policy) error
+}
+
+type policyLoader interface {
+	LoadRepositoryPolicy(ctx context.Context, owner, repo, name string) (*policy.Policy, error)
+	LoadOrganizationPolicy(ctx context.Context, owner, name string) (*policy.Policy, error)
+}
+
 type parsedResource struct {
 	org  string
 	repo string
@@ -128,7 +138,7 @@ type parsedScope string
 func parseScope(scope string) (parsedScope, error) {
 	p := path.Clean(scope)
 
-	if p != scope {
+	if p != scope || strings.HasPrefix(p, "../") || p == ".." {
 		return "", errors.New("scope must not contain path traversal")
 	}
 
