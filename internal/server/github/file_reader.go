@@ -59,7 +59,7 @@ func (f *FileReader) ReadFile(ctx context.Context, owner, repo, path string) ([]
 }
 
 func (f *FileReader) readFile(ctx context.Context, url string, entry *fileCacheEntry) error {
-	token, err := f.tokenSource.Token(ctx)
+	token, err := f.tokenSource.Token(ctx, nil, map[string]string{"contents": "read"})
 
 	if err != nil {
 		return err

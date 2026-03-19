@@ -1,17 +1,25 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
+	"slices"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
+)
+
+const (
+	tokenCacheSize = 1024
 )
 
 type InstallationTokenSource interface {
-	Token(ctx context.Context) (*InstallationToken, error)
+	Token(ctx context.Context, repos []string, perms Permissions) (*InstallationToken, error)
 }
 
 type installationTokenSource struct {
@@ -19,40 +27,47 @@ type installationTokenSource struct {
 	installationID string
 	client         *http.Client
 
-	mutex sync.Mutex
-	token *InstallationToken
+	cache *lru.Cache[tokenCacheKey, *InstallationToken]
 }
 
-func NewInstallationTokenSource(a *AppTokenSource, installationID string, client *http.Client) InstallationTokenSource {
+func NewInstallationTokenSource(tokenSource *AppTokenSource, installationID string, client *http.Client) InstallationTokenSource {
 	if client == nil {
 		client = http.DefaultClient
 	}
 
-	return &installationTokenSource{appTokenSource: a, installationID: installationID, client: client}
+	// SAFETY: allocating with a positive integer is infallible.
+	cache, _ := lru.New[tokenCacheKey, *InstallationToken](tokenCacheSize)
+
+	return &installationTokenSource{
+		appTokenSource: tokenSource,
+		installationID: installationID,
+		client:         client,
+		cache:          cache,
+	}
 }
 
-func (i *installationTokenSource) Token(ctx context.Context) (*InstallationToken, error) {
+func (i *installationTokenSource) Token(ctx context.Context, repos []string, perms Permissions) (*InstallationToken, error) {
 	now := time.Now()
+	key := newTokenCacheKey(repos, perms)
 
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	cacheEntry, _ := i.cache.Get(key)
 
-	if !i.token.Expired(now) {
-		return i.token, nil
+	if !cacheEntry.Expired(now) {
+		return cacheEntry, nil
 	}
 
-	token, err := i.generateToken(ctx)
+	token, err := i.generateToken(ctx, repos, perms)
 
 	if err != nil {
 		return nil, err
 	}
 
-	i.token = token
+	i.cache.Add(key, token)
 
-	return i.token, nil
+	return token, nil
 }
 
-func (i *installationTokenSource) generateToken(ctx context.Context) (*InstallationToken, error) {
+func (i *installationTokenSource) generateToken(ctx context.Context, repos []string, perms Permissions) (*InstallationToken, error) {
 	appToken, err := i.appTokenSource.Token(ctx)
 
 	if err != nil {
@@ -61,7 +76,23 @@ func (i *installationTokenSource) generateToken(ctx context.Context) (*Installat
 
 	url := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", i.installationID)
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	var requestBody bytes.Buffer
+
+	err = json.NewEncoder(&requestBody).Encode(struct {
+		Repositories []string          `json:"repositories,omitempty"`
+		Permissions  map[string]string `json:"permissions,omitempty"`
+	}{
+		Repositories: repos,
+		Permissions:  perms,
+	})
+
+	if err != nil {
+		// This is unreachable, but we're in a security-sensitive context and it's easy enough to return the error, so
+		// we'll do that here.
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &requestBody)
 
 	if err != nil {
 		return nil, err
@@ -94,6 +125,28 @@ func (i *installationTokenSource) generateToken(ctx context.Context) (*Installat
 	}
 
 	return &tr, nil
+}
+
+type tokenCacheKey string
+
+func newTokenCacheKey(repositories []string, permissions Permissions) tokenCacheKey {
+	slices.Sort(repositories)
+
+	h := sha256.New()
+	e := json.NewEncoder(h)
+
+	err := e.Encode(struct {
+		r []string
+		p Permissions
+	}{repositories, permissions})
+
+	if err != nil {
+		// The Encode call is infallible, but we're in a security-sensitive context, so we'll panic instead of
+		// potentially causing a cache collision.
+		panic(fmt.Errorf("unreachable: %w", err))
+	}
+
+	return tokenCacheKey(h.Sum([]byte{}))
 }
 
 type InstallationToken struct {

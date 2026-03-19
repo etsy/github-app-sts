@@ -11,7 +11,7 @@ import (
 
 type fakeInstallationTokenSource struct{}
 
-func (f *fakeInstallationTokenSource) Token(_ context.Context) (*InstallationToken, error) {
+func (f *fakeInstallationTokenSource) Token(_ context.Context, _repos []string, _perms Permissions) (*InstallationToken, error) {
 	return &InstallationToken{
 		AccessToken: "fake-token",
 		ExpiresAt:   time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
