@@ -34,11 +34,6 @@ func TestExtractIssuer(t *testing.T) {
 			want:  "https://known-issuer.example.com",
 		},
 		{
-			name:    "unknown issuer",
-			token:   fakeJWT(t, map[string]any{"iss": "https://unknown.example.com"}),
-			wantErr: true,
-		},
-		{
 			name:    "malformed JWT - too few parts",
 			token:   "not-a-jwt",
 			wantErr: true,

@@ -2,10 +2,12 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/ericnorris/github-app-sts/internal/server/github"
 	"github.com/google/cel-go/cel"
 	"gopkg.in/yaml.v3"
 )
@@ -29,6 +31,12 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name str
 	policyContents, err := l.reader.ReadFile(ctx, owner, repo, path)
 
 	if err != nil {
+		var ghNotFound *github.FileNotFoundError
+
+		if errors.As(err, &ghNotFound) {
+			return nil, &NotFoundError{err}
+		}
+
 		return nil, fmt.Errorf("loading policy file: %w", err)
 	}
 
@@ -66,6 +74,12 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string)
 	policyContents, err := l.reader.ReadFile(ctx, owner, l.orgPolicyRepo, path)
 
 	if err != nil {
+		var ghNotFound *github.FileNotFoundError
+
+		if errors.As(err, &ghNotFound) {
+			return nil, &NotFoundError{err}
+		}
+
 		return nil, fmt.Errorf("loading policy file: %w", err)
 	}
 
@@ -91,6 +105,13 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string)
 		op.Repositories,
 	)
 }
+
+type NotFoundError struct {
+	Err error
+}
+
+func (e *NotFoundError) Error() string { return "policy not found" }
+func (e *NotFoundError) Unwrap() error { return e.Err }
 
 type Policy struct {
 	AppID   int64

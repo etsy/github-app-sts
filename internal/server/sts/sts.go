@@ -2,6 +2,8 @@ package sts
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,13 +15,45 @@ import (
 	"github.com/ericnorris/github-app-sts/internal/server/policy"
 )
 
-type ValidationError struct {
-	message string
-	cause   error
+type Result struct {
+	Token   *github.InstallationToken
+	Details *ExchangeDetails
 }
 
-func (e *ValidationError) Error() string { return e.message }
-func (e *ValidationError) Unwrap() error { return e.cause }
+type Error struct {
+	Kind    ErrorKind
+	Details *ExchangeDetails
+	Err     error
+}
+
+func (e *Error) Error() string { return "exchange error" }
+func (e *Error) Unwrap() error { return e.Err }
+
+type ErrorKind int
+
+const (
+	ErrKindInternal ErrorKind = iota
+	ErrKindInvalidToken
+	ErrKindInvalidResource
+	ErrKindInvalidScope
+)
+
+type ExchangeDetails struct {
+	SubjectTokenHash  string
+	ResourceParameter string
+	ScopeParameter    string
+
+	SubjectTokenIssuer string
+
+	TargetOrganization string
+	TargetRepository   string
+
+	PolicyAppID        int64
+	PolicyPermissions  github.Permissions
+	PolicyRepositories []string
+
+	AllowedByPolicy bool
+}
 
 type Service struct {
 	verifier tokenVerifier
@@ -36,48 +70,134 @@ func New(verifier *oidc.Verifier, loader *policy.Loader, apps map[int64]github.I
 	}
 }
 
-func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, scope string) (*github.InstallationToken, error) {
-	issuer, err := s.verifier.ExtractIssuer(subjectToken)
-
-	if err != nil {
-		return nil, &ValidationError{"invalid subject token", err}
+func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, scope string) (*Result, error) {
+	d := ExchangeDetails{
+		SubjectTokenHash:  hashSubjectToken(subjectToken),
+		ResourceParameter: resource,
+		ScopeParameter:    scope,
 	}
 
-	parsedResource, err := parseResource(resource)
+	var err error
+
+	d.SubjectTokenIssuer, err = s.verifier.ExtractIssuer(subjectToken)
 
 	if err != nil {
-		return nil, &ValidationError{"invalid resource", err}
+		return nil, &Error{ErrKindInvalidToken, &d, err}
 	}
 
-	parsedScope, err := parseScope(scope)
+	if err := parseResource(resource, &d); err != nil {
+		return nil, &Error{ErrKindInvalidResource, &d, err}
+	}
 
-	if err != nil {
-		return nil, &ValidationError{"invalid scope", err}
+	if err := validateScope(scope); err != nil {
+		return nil, &Error{ErrKindInvalidScope, &d, err}
 	}
 
 	var pol *policy.Policy
 
-	if parsedResource.repo == "" {
-		pol, err = s.loader.LoadOrganizationPolicy(ctx, parsedResource.org, string(parsedScope))
+	if d.TargetRepository == "" {
+		pol, err = s.loader.LoadOrganizationPolicy(ctx, d.TargetOrganization, scope)
 	} else {
-		pol, err = s.loader.LoadRepositoryPolicy(ctx, parsedResource.org, parsedResource.repo, string(parsedScope))
+		pol, err = s.loader.LoadRepositoryPolicy(ctx, d.TargetOrganization, d.TargetRepository, scope)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("could not load policy: %w", err)
+		kind := ErrKindInternal
+
+		var notFoundError *policy.NotFoundError
+
+		if errors.As(err, &notFoundError) {
+			kind = ErrKindInvalidScope
+		}
+
+		return nil, &Error{kind, &d, fmt.Errorf("could not load policy: %w", err)}
 	}
 
-	if err := s.verifier.Verify(ctx, issuer, subjectToken, pol); err != nil {
-		return nil, fmt.Errorf("rejected by verifier: %w", err)
+	d.PolicyAppID = pol.AppID
+	d.PolicyRepositories = pol.Repositories
+	d.PolicyPermissions = pol.Permissions
+
+	if err := s.verifier.Verify(ctx, d.SubjectTokenIssuer, subjectToken, pol); err != nil {
+		// This is a *tiny* lie. The verification could fail because of a server error, for example in the case of
+		// needing to refresh the OIDC JWK values. This is rare compared to other types of failures, however.
+		return nil, &Error{ErrKindInvalidToken, &d, fmt.Errorf("rejected by verifier: %w", err)}
 	}
+
+	d.AllowedByPolicy = true
 
 	tokenSource, ok := s.apps[pol.AppID]
 
 	if !ok {
-		return nil, fmt.Errorf("policy references unknown app: %d", pol.AppID)
+		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy references unknown app: %d", pol.AppID)}
 	}
 
-	return tokenSource.Token(ctx, pol.Repositories, pol.Permissions)
+	token, err := tokenSource.Token(ctx, pol.Repositories, pol.Permissions)
+
+	if err != nil {
+		return nil, &Error{ErrKindInternal, &d, err}
+	}
+
+	return &Result{token, &d}, nil
+}
+
+func hashSubjectToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+
+	return hex.EncodeToString(h[:])
+}
+
+func parseResource(resource string, details *ExchangeDetails) error {
+	u, err := url.Parse(resource)
+
+	if err != nil {
+		return fmt.Errorf("resource is not a valid URL: %w", err)
+	}
+
+	if u.Scheme != "https" {
+		return fmt.Errorf("resource must use HTTPS scheme, got: %q", u.Scheme)
+	}
+
+	if u.Host != "github.com" {
+		return fmt.Errorf("resource host must be github.com, got: %q", u.Host)
+	}
+
+	cleanedPath := path.Clean(u.Path)
+
+	if cleanedPath != u.Path {
+		return errors.New("resource path must not contain path traversal")
+	}
+
+	if cleanedPath == "/" {
+		return errors.New("resource path is empty")
+	}
+
+	// remove the leading '/' (e.g. /myorg/repo), then split into ['myorg', 'repo']
+	parts := strings.Split(strings.TrimPrefix(cleanedPath, "/"), "/")
+
+	switch len(parts) {
+	case 1:
+		// org scope: https://github.com/{owner}
+		details.TargetOrganization = parts[0]
+
+	case 2:
+		// repo scope: https://github.com/{owner}/{repo}
+		details.TargetOrganization, details.TargetRepository = parts[0], parts[1]
+
+	default:
+		return fmt.Errorf("resource path must have 1 or 2 segments (org or org/repo), got: %d", len(parts))
+	}
+
+	return nil
+}
+
+func validateScope(scope string) error {
+	p := path.Clean(scope)
+
+	if p != scope || strings.HasPrefix(p, "../") || p == ".." {
+		return errors.New("scope must not contain path traversal")
+	}
+
+	return nil
 }
 
 type tokenVerifier interface {
@@ -88,59 +208,4 @@ type tokenVerifier interface {
 type policyLoader interface {
 	LoadRepositoryPolicy(ctx context.Context, owner, repo, name string) (*policy.Policy, error)
 	LoadOrganizationPolicy(ctx context.Context, owner, name string) (*policy.Policy, error)
-}
-
-type parsedResource struct {
-	org  string
-	repo string
-}
-
-func parseResource(resource string) (*parsedResource, error) {
-	u, err := url.Parse(resource)
-
-	if err != nil {
-		return nil, fmt.Errorf("resource is not a valid URL: %w", err)
-	}
-
-	if u.Scheme != "https" {
-		return nil, fmt.Errorf("resource must use HTTPS scheme, got: %q", u.Scheme)
-	}
-
-	if u.Host != "github.com" {
-		return nil, fmt.Errorf("resource host must be github.com, got: %q", u.Host)
-	}
-
-	cleanedPath := path.Clean(u.Path)
-
-	if cleanedPath != u.Path {
-		return nil, errors.New("resource path must not contain path traversal")
-	}
-
-	// remove the leading '/' (e.g. /myorg/repo), then split into ['myorg', 'repo']
-	parts := strings.Split(strings.TrimPrefix(cleanedPath, "/"), "/")
-
-	switch len(parts) {
-	case 1:
-		// org scope: https://github.com/{owner}
-		return &parsedResource{parts[0], ""}, nil
-
-	case 2:
-		// repo scope: https://github.com/{owner}/{repo}
-		return &parsedResource{parts[0], parts[1]}, nil
-
-	default:
-		return nil, fmt.Errorf("resource path must have 1 or 2 segments (org or org/repo), got: %d", len(parts))
-	}
-}
-
-type parsedScope string
-
-func parseScope(scope string) (parsedScope, error) {
-	p := path.Clean(scope)
-
-	if p != scope || strings.HasPrefix(p, "../") || p == ".." {
-		return "", errors.New("scope must not contain path traversal")
-	}
-
-	return parsedScope(p), nil
 }

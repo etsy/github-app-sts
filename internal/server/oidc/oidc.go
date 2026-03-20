@@ -46,7 +46,7 @@ func (v *Verifier) ExtractIssuer(token string) (string, error) {
 	parts := strings.SplitN(token, ".", 3)
 
 	if len(parts) != 3 {
-		return "", fmt.Errorf("could not extract issuer from OIDC token: too few parts")
+		return "", errors.New("could not extract issuer from OIDC token: incorrect number of parts")
 	}
 
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -63,8 +63,8 @@ func (v *Verifier) ExtractIssuer(token string) (string, error) {
 		return "", fmt.Errorf("could not extract issuer from OIDC token: %w", err)
 	}
 
-	if _, ok := v.verifiers[claims.Issuer]; !ok {
-		return "", fmt.Errorf("could not extract issuer from OIDC token: issuer '%s' not in allowed issuers", claims.Issuer)
+	if claims.Issuer == "" {
+		return "", errors.New("could not extract issuer from OIDC token: missing 'iss' claim")
 	}
 
 	return claims.Issuer, nil
@@ -100,7 +100,7 @@ func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, p
 	if ok, err := policy.EvaluateClaims(claims); err != nil {
 		return fmt.Errorf("could not verify OIDC token: %w", err)
 	} else if !ok {
-		return errors.New("token is not allowed by the 'claims' expression in the policy")
+		return errors.New("could not verify OIDC token: token is not allowed by the 'claims' expression in the policy")
 	}
 
 	return nil

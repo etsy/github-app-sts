@@ -55,11 +55,18 @@ func TestParseResource(t *testing.T) {
 			input:   "https://github.com",
 			wantErr: true,
 		},
+		{
+			name:    "rejects empty path",
+			input:   "https://github.com/",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseResource(tt.input)
+			var details ExchangeDetails
+
+			err := parseResource(tt.input, &details)
 
 			if tt.wantErr {
 				if err == nil {
@@ -72,12 +79,12 @@ func TestParseResource(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if result.org != tt.wantOrg {
-				t.Errorf("org = %q, want %q", result.org, tt.wantOrg)
+			if details.TargetOrganization != tt.wantOrg {
+				t.Errorf("org = %q, want %q", details.TargetOrganization, tt.wantOrg)
 			}
 
-			if result.repo != tt.wantRepo {
-				t.Errorf("repo = %q, want %q", result.repo, tt.wantRepo)
+			if details.TargetRepository != tt.wantRepo {
+				t.Errorf("repo = %q, want %q", details.TargetRepository, tt.wantRepo)
 			}
 		})
 	}
@@ -129,21 +136,14 @@ func TestParseScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseScope(tt.input)
+			err := validateScope(tt.input)
 
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
 				}
-				return
-			}
-
-			if err != nil {
+			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if string(result) != tt.want {
-				t.Errorf("got %q, want %q", result, tt.want)
 			}
 		})
 	}
@@ -211,15 +211,15 @@ func TestExchangeToken(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		service           *Service
-		token             string
-		resource          string
-		scope             string
-		wantErr           bool
-		wantValidationErr bool
-		wantRepoLoad      bool
-		wantOrgLoad       bool
+		name         string
+		service      *Service
+		token        string
+		resource     string
+		scope        string
+		wantErr      bool
+		wantErrKind  ErrorKind
+		wantRepoLoad bool
+		wantOrgLoad  bool
 	}{
 		{
 			name: "successful repo exchange",
@@ -254,33 +254,33 @@ func TestExchangeToken(t *testing.T) {
 			service: &Service{
 				verifier: &fakeVerifier{issuerErr: fmt.Errorf("bad token")},
 			},
-			token:             "bad-token",
-			resource:          "https://github.com/myorg/myrepo",
-			scope:             "my-policy",
-			wantErr:           true,
-			wantValidationErr: true,
+			token:       "bad-token",
+			resource:    "https://github.com/myorg/myrepo",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInvalidToken,
 		},
 		{
 			name: "invalid resource",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://issuer.example.com"},
 			},
-			token:             "fake.jwt.token",
-			resource:          "not-a-url",
-			scope:             "my-policy",
-			wantErr:           true,
-			wantValidationErr: true,
+			token:       "fake.jwt.token",
+			resource:    "not-a-url",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInvalidResource,
 		},
 		{
 			name: "invalid scope",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://issuer.example.com"},
 			},
-			token:             "fake.jwt.token",
-			resource:          "https://github.com/myorg",
-			scope:             "./traversal",
-			wantErr:           true,
-			wantValidationErr: true,
+			token:       "fake.jwt.token",
+			resource:    "https://github.com/myorg",
+			scope:       "./traversal",
+			wantErr:     true,
+			wantErrKind: ErrKindInvalidScope,
 		},
 		{
 			name: "policy load fails",
@@ -288,10 +288,11 @@ func TestExchangeToken(t *testing.T) {
 				verifier: &fakeVerifier{issuer: "https://issuer.example.com"},
 				loader:   &fakePolicyLoader{err: fmt.Errorf("not found")},
 			},
-			token:    "fake.jwt.token",
-			resource: "https://github.com/myorg/myrepo",
-			scope:    "my-policy",
-			wantErr:  true,
+			token:       "fake.jwt.token",
+			resource:    "https://github.com/myorg/myrepo",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInternal,
 		},
 		{
 			name: "verification fails",
@@ -302,10 +303,11 @@ func TestExchangeToken(t *testing.T) {
 				},
 				loader: &fakePolicyLoader{policy: testPolicy(1)},
 			},
-			token:    "fake.jwt.token",
-			resource: "https://github.com/myorg/myrepo",
-			scope:    "my-policy",
-			wantErr:  true,
+			token:       "fake.jwt.token",
+			resource:    "https://github.com/myorg/myrepo",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInvalidToken,
 		},
 		{
 			name: "unknown app ID",
@@ -314,10 +316,11 @@ func TestExchangeToken(t *testing.T) {
 				loader:   &fakePolicyLoader{policy: testPolicy(99)},
 				apps:     map[int64]github.InstallationTokenSource{},
 			},
-			token:    "fake.jwt.token",
-			resource: "https://github.com/myorg/myrepo",
-			scope:    "my-policy",
-			wantErr:  true,
+			token:       "fake.jwt.token",
+			resource:    "https://github.com/myorg/myrepo",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInternal,
 		},
 		{
 			name: "token source fails",
@@ -328,10 +331,11 @@ func TestExchangeToken(t *testing.T) {
 					1: &fakeTokenSource{err: fmt.Errorf("github error")},
 				},
 			},
-			token:    "fake.jwt.token",
-			resource: "https://github.com/myorg/myrepo",
-			scope:    "my-policy",
-			wantErr:  true,
+			token:       "fake.jwt.token",
+			resource:    "https://github.com/myorg/myrepo",
+			scope:       "my-policy",
+			wantErr:     true,
+			wantErrKind: ErrKindInternal,
 		},
 	}
 
@@ -344,11 +348,14 @@ func TestExchangeToken(t *testing.T) {
 					t.Fatal("expected error, got nil")
 				}
 
-				if tt.wantValidationErr {
-					var ve *ValidationError
-					if !errors.As(err, &ve) {
-						t.Errorf("expected ValidationError, got %T: %v", err, err)
+				var stsError *Error
+
+				if errors.As(err, &stsError) {
+					if stsError.Kind != tt.wantErrKind {
+						t.Errorf("expected error kind %d, got %d: %v", tt.wantErrKind, stsError.Kind, err)
 					}
+				} else {
+					t.Errorf("expected Error, got %T: %v", err, err)
 				}
 
 				return
@@ -373,8 +380,8 @@ func TestExchangeToken(t *testing.T) {
 				}
 			}
 
-			if result.AccessToken != validToken.AccessToken {
-				t.Errorf("got token %q, want %q", result.AccessToken, validToken.AccessToken)
+			if result.Token.AccessToken != validToken.AccessToken {
+				t.Errorf("got token %q, want %q", result.Token.AccessToken, validToken.AccessToken)
 			}
 		})
 	}

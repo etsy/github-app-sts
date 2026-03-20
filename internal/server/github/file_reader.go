@@ -13,7 +13,7 @@ import (
 const (
 	// Maximum allowed size of a file: 1 MB.
 	maxResponseBytes = 1 * 1024 * 1024
-	fileCacheSize    = 1000
+	fileCacheSize    = 1024
 	fileCacheTTL     = 1 * time.Minute
 )
 
@@ -94,6 +94,10 @@ func (f *FileReader) readFile(ctx context.Context, url string, entry *fileCacheE
 		return nil
 	}
 
+	if response.StatusCode == http.StatusNotFound {
+		return &FileNotFoundError{url}
+	}
+
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code from GitHub API (%d): %s", response.StatusCode, body)
 	}
@@ -102,6 +106,14 @@ func (f *FileReader) readFile(ctx context.Context, url string, entry *fileCacheE
 	entry.etag = response.Header.Get("ETag")
 
 	return nil
+}
+
+type FileNotFoundError struct {
+	URL string
+}
+
+func (e *FileNotFoundError) Error() string {
+	return fmt.Sprintf("file not found: %s", e.URL)
 }
 
 type fileCacheEntry struct {
