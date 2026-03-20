@@ -20,7 +20,7 @@ func validConfig() *Config {
 				"myorg": 12345,
 			},
 		},
-		STSTargetApps: []AppConfig{
+		STSTargetApps: []*AppConfig{
 			{
 				ClientID:   ptr("2"),
 				PrivateKey: PrivateKeyConfig{File: "/path/to/key2.pem"},
@@ -56,7 +56,7 @@ func TestValidate(t *testing.T) {
 		{"multiple private key sources", func(c *Config) {
 			c.PolicyReaderApp.PrivateKey = PrivateKeyConfig{File: "a", EnvVar: "B"}
 		}},
-		{"empty sts_target_apps", func(c *Config) { c.STSTargetApps = []AppConfig{} }},
+		{"empty sts_target_apps", func(c *Config) { c.STSTargetApps = []*AppConfig{} }},
 		{"missing sts_target_app id", func(c *Config) { c.STSTargetApps[0].ClientID = nil }},
 		{"empty org_policy_repo value", func(c *Config) { c.OrgPolicyRepos = map[string]string{"org": ""} }},
 	}

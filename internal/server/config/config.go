@@ -27,7 +27,7 @@ type Config struct {
 
 	// STSTargetApps are the GitHub Apps that policies can mint tokens for. Each policy specifies an app_id that must
 	// match one of these.
-	STSTargetApps []AppConfig `yaml:"sts_target_apps"`
+	STSTargetApps []*AppConfig `yaml:"sts_target_apps"`
 
 	// OrgPolicyRepos maps organization names to their policy repository.
 	OrgPolicyRepos map[string]string `yaml:"org_policy_repos"`
@@ -80,7 +80,6 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// validate checks that the configuration is well-formed.
 func (c *Config) validate() error {
 	var errs []error
 
