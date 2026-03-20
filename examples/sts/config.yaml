@@ -1,0 +1,51 @@
+# The expected OIDC audience claim. OIDC tokens must have this value
+# in their "aud" claim. Should be the public URL of your STS.
+audience: "https://sts.example.com"
+
+# HTTP port to listen on.
+port: 8080
+
+# OIDC issuers that the STS will accept tokens from.
+# Tokens from issuers not on this list are rejected before any
+# outbound requests are made (no discovery doc fetch, no JWKS fetch).
+allowed_issuers:
+  - "https://token.actions.githubusercontent.com"
+  # - "https://accounts.google.com"
+
+# Log verbosity: debug, info, warn, error.
+log_level: info
+
+# The STS's own GitHub App, used only for reading policy files and
+# finding installations. Should have minimal permissions (contents: read).
+policy_reader_app:
+  id: 11111
+  private_key:
+    kms_key: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/sts-reader/cryptoKeyVersions/1"
+  # Installation IDs for each org/user where the reader app is installed.
+  installations:
+    myorg: 22222
+
+# Target GitHub Apps that policies can mint tokens for.
+# Each policy specifies an app_id that must match one of these.
+sts_target_apps:
+  # Example: Deploy bot with key stored in GCP Cloud KMS
+  - id: 12345
+    private_key:
+      kms_key: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/deploy-bot/cryptoKeyVersions/1"
+    # Installation IDs for each org/user where this app is installed.
+    # Find these in your GitHub App settings under "Installations".
+    installations:
+      myorg: 33333
+
+  # Example: Review bot with key in a local PEM file (for development)
+  # - id: 67890
+  #   private_key:
+  #     file: "/etc/secrets/review-bot.pem"
+  #   installations:
+  #     myorg: 44444
+
+# Organization-level configuration.
+# Maps org names to the repository that holds their trust policies.
+orgs:
+  myorg:
+    policy_repo: "myorg/.github-sts"
