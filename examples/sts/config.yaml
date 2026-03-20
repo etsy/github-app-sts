@@ -12,15 +12,14 @@ allowed_issuers:
   - "https://token.actions.githubusercontent.com"
   # - "https://accounts.google.com"
 
-# Log verbosity: debug, info, warn, error.
-log_level: info
-
 # The STS's own GitHub App, used only for reading policy files and
 # finding installations. Should have minimal permissions (contents: read).
 policy_reader_app:
-  id: 11111
+  client_id: "abcd1234"
+
   private_key:
-    kms_key: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/sts-reader/cryptoKeyVersions/1"
+    google_kms: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/sts-reader/cryptoKeyVersions/1"
+
   # Installation IDs for each org/user where the reader app is installed.
   installations:
     myorg: 22222
@@ -29,23 +28,17 @@ policy_reader_app:
 # Each policy specifies an app_id that must match one of these.
 sts_target_apps:
   # Example: Deploy bot with key stored in GCP Cloud KMS
-  - id: 12345
+  - client_id: "abcd1234"
+
     private_key:
-      kms_key: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/deploy-bot/cryptoKeyVersions/1"
+      google_kms: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/deploy-bot/cryptoKeyVersions/1"
+
     # Installation IDs for each org/user where this app is installed.
     # Find these in your GitHub App settings under "Installations".
     installations:
       myorg: 33333
 
-  # Example: Review bot with key in a local PEM file (for development)
-  # - id: 67890
-  #   private_key:
-  #     file: "/etc/secrets/review-bot.pem"
-  #   installations:
-  #     myorg: 44444
-
 # Organization-level configuration.
 # Maps org names to the repository that holds their trust policies.
 orgs:
-  myorg:
-    policy_repo: "myorg/.github-sts"
+  myorg: ".github-sts"
