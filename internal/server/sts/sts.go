@@ -15,6 +15,9 @@ import (
 	"github.com/ericnorris/github-app-sts/internal/server/policy"
 )
 
+// AppRegistry is a map of org (owner) -> client ID -> InstallationTokenSource.
+type AppRegistry map[string]map[string]github.InstallationTokenSource
+
 type Result struct {
 	Token   *github.InstallationToken
 	Details *ExchangeDetails
@@ -48,7 +51,7 @@ type ExchangeDetails struct {
 	TargetOrganization string
 	TargetRepository   string
 
-	PolicyAppID        int64
+	PolicyAppClientID  string
 	PolicyPermissions  github.Permissions
 	PolicyRepositories []string
 
@@ -57,15 +60,19 @@ type ExchangeDetails struct {
 
 type Service struct {
 	verifier tokenVerifier
-	loader   policyLoader
-
-	apps map[int64]github.InstallationTokenSource
+	loaders  map[string]policyLoader
+	apps     AppRegistry
 }
 
-func New(verifier *oidc.Verifier, loader *policy.Loader, apps map[int64]github.InstallationTokenSource) *Service {
+func New(verifier *oidc.Verifier, loaders map[string]*policy.Loader, apps AppRegistry) *Service {
+	compatibleLoaders := make(map[string]policyLoader, len(loaders))
+	for k, v := range loaders {
+		compatibleLoaders[k] = v
+	}
+
 	return &Service{
 		verifier,
-		loader,
+		compatibleLoaders,
 		apps,
 	}
 }
@@ -93,12 +100,18 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 		return nil, &Error{ErrKindInvalidScope, &d, err}
 	}
 
+	targetLoader, ok := s.loaders[d.TargetOrganization]
+
+	if !ok {
+		return nil, &Error{ErrKindInvalidResource, &d, fmt.Errorf("unknown organization: %s", d.TargetOrganization)}
+	}
+
 	var pol *policy.Policy
 
 	if d.TargetRepository == "" {
-		pol, err = s.loader.LoadOrganizationPolicy(ctx, d.TargetOrganization, scope)
+		pol, err = targetLoader.LoadOrganizationPolicy(ctx, scope)
 	} else {
-		pol, err = s.loader.LoadRepositoryPolicy(ctx, d.TargetOrganization, d.TargetRepository, scope)
+		pol, err = targetLoader.LoadRepositoryPolicy(ctx, d.TargetRepository, scope)
 	}
 
 	if err != nil {
@@ -113,7 +126,7 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 		return nil, &Error{kind, &d, fmt.Errorf("could not load policy: %w", err)}
 	}
 
-	d.PolicyAppID = pol.AppID
+	d.PolicyAppClientID = pol.AppClientID
 	d.PolicyRepositories = pol.Repositories
 	d.PolicyPermissions = pol.Permissions
 
@@ -125,10 +138,16 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 
 	d.AllowedByPolicy = true
 
-	tokenSource, ok := s.apps[pol.AppID]
+	targetInstallations, ok := s.apps[d.TargetOrganization]
 
 	if !ok {
-		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy references unknown app: %d", pol.AppID)}
+		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy app does not appear to be installed in the target org")}
+	}
+
+	tokenSource, ok := targetInstallations[pol.AppClientID]
+
+	if !ok {
+		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy references unknown app: %s", pol.AppClientID)}
 	}
 
 	token, err := tokenSource.Token(ctx, pol.Repositories, pol.Permissions)
@@ -206,6 +225,6 @@ type tokenVerifier interface {
 }
 
 type policyLoader interface {
-	LoadRepositoryPolicy(ctx context.Context, owner, repo, name string) (*policy.Policy, error)
-	LoadOrganizationPolicy(ctx context.Context, owner, name string) (*policy.Policy, error)
+	LoadRepositoryPolicy(ctx context.Context, repo, name string) (*policy.Policy, error)
+	LoadOrganizationPolicy(ctx context.Context, name string) (*policy.Policy, error)
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type FileReader interface {
-	ReadFile(ctx context.Context, owner, repo, path string) ([]byte, error)
+	ReadFile(ctx context.Context, repo, path string) ([]byte, error)
 }
 
 type Loader struct {
@@ -25,10 +25,10 @@ func NewLoader(reader FileReader, orgPolicyRepo string) *Loader {
 	return &Loader{reader, orgPolicyRepo}
 }
 
-func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name string) (*Policy, error) {
+func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*Policy, error) {
 	path := fmt.Sprintf(".github/sts/%s.yaml", name)
 
-	policyContents, err := l.reader.ReadFile(ctx, owner, repo, path)
+	policyContents, err := l.reader.ReadFile(ctx, repo, path)
 
 	if err != nil {
 		var ghNotFound *github.FileNotFoundError
@@ -41,7 +41,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name str
 	}
 
 	var rp struct {
-		AppID       int64             `yaml:"app_id"`
+		AppClientID string            `yaml:"app_client_id"`
 		Issuer      string            `yaml:"issuer"`
 		Subject     string            `yaml:"subject"`
 		Claims      string            `yaml:"claims,omitempty"`
@@ -59,7 +59,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name str
 	}
 
 	return NewPolicy(
-		rp.AppID,
+		rp.AppClientID,
 		rp.Issuer,
 		rp.Subject,
 		rp.Claims,
@@ -68,10 +68,10 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, owner, repo, name str
 	)
 }
 
-func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string) (*Policy, error) {
+func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Policy, error) {
 	path := fmt.Sprintf(".github/sts/%s.yaml", name)
 
-	policyContents, err := l.reader.ReadFile(ctx, owner, l.orgPolicyRepo, path)
+	policyContents, err := l.reader.ReadFile(ctx, l.orgPolicyRepo, path)
 
 	if err != nil {
 		var ghNotFound *github.FileNotFoundError
@@ -84,7 +84,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string)
 	}
 
 	var op struct {
-		AppID        int64             `yaml:"app_id"`
+		AppClientID  string            `yaml:"app_client_id"`
 		Issuer       string            `yaml:"issuer"`
 		Subject      string            `yaml:"subject"`
 		Claims       string            `yaml:"claims,omitempty"`
@@ -97,7 +97,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, owner, name string)
 	}
 
 	return NewPolicy(
-		op.AppID,
+		op.AppClientID,
 		op.Issuer,
 		op.Subject,
 		op.Claims,
@@ -114,10 +114,10 @@ func (e *NotFoundError) Error() string { return "policy not found" }
 func (e *NotFoundError) Unwrap() error { return e.Err }
 
 type Policy struct {
-	AppID   int64
-	Issuer  string
-	Subject *regexp.Regexp
-	Claims  cel.Program
+	AppClientID string
+	Issuer      string
+	Subject     *regexp.Regexp
+	Claims      cel.Program
 
 	Permissions  map[string]string
 	Repositories []string
@@ -141,7 +141,7 @@ func (p *Policy) EvaluateClaims(claims map[string]any) (bool, error) {
 }
 
 func NewPolicy(
-	appID int64,
+	appClientID string,
 	issuer string,
 	subject string,
 	claims string,
@@ -155,7 +155,7 @@ func NewPolicy(
 	}
 
 	p := &Policy{
-		AppID:        appID,
+		AppClientID:  appClientID,
 		Issuer:       issuer,
 		Subject:      subjectRegex,
 		Permissions:  permissions,

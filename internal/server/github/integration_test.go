@@ -45,13 +45,14 @@ func TestFileReaderIntegration(t *testing.T) {
 	reader := github.NewFileReader(
 		github.NewInstallationTokenSource(
 			github.NewAppTokenSource(key),
+			owner,
 			installationID,
 			nil,
 		),
 		nil,
 	)
 
-	content, err := reader.ReadFile(context.Background(), owner, repo, FileReaderTestPath)
+	content, err := reader.ReadFile(context.Background(), repo, FileReaderTestPath)
 
 	if err != nil {
 		t.Fatalf("reading file: %v", err)

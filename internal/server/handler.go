@@ -141,7 +141,7 @@ func (h *Handler) logExchange(level slog.Level, d *sts.ExchangeDetails, err erro
 			slog.String("issuer", d.SubjectTokenIssuer),
 			slog.String("target_org", d.TargetOrganization),
 			slog.String("target_repo", d.TargetRepository),
-			slog.Int64("policy_app_id", d.PolicyAppID),
+			slog.String("policy_app_client_id", d.PolicyAppClientID),
 			slog.Bool("allowed_by_policy", d.AllowedByPolicy),
 		),
 	}

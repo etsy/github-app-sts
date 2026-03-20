@@ -37,8 +37,8 @@ func NewFileReader(tokenSource InstallationTokenSource, client *http.Client) *Fi
 	return &FileReader{tokenSource, client, lru}
 }
 
-func (f *FileReader) ReadFile(ctx context.Context, owner, repo, path string) ([]byte, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
+func (f *FileReader) ReadFile(ctx context.Context, repo, path string) ([]byte, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", f.tokenSource.Owner(), repo, path)
 	now := getNow()
 
 	cacheEntry, _ := f.cache.Get(url)

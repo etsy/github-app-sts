@@ -19,18 +19,20 @@ const (
 )
 
 type InstallationTokenSource interface {
+	Owner() string
 	Token(ctx context.Context, repos []string, perms Permissions) (*InstallationToken, error)
 }
 
 type installationTokenSource struct {
 	appTokenSource *AppTokenSource
-	installationID string
+	owner          string
+	id             string
 	client         *http.Client
 
 	cache *lru.Cache[tokenCacheKey, *InstallationToken]
 }
 
-func NewInstallationTokenSource(tokenSource *AppTokenSource, installationID string, client *http.Client) InstallationTokenSource {
+func NewInstallationTokenSource(tokenSource *AppTokenSource, owner, id string, client *http.Client) InstallationTokenSource {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -40,10 +42,15 @@ func NewInstallationTokenSource(tokenSource *AppTokenSource, installationID stri
 
 	return &installationTokenSource{
 		appTokenSource: tokenSource,
-		installationID: installationID,
+		owner:          owner,
+		id:             id,
 		client:         client,
 		cache:          cache,
 	}
+}
+
+func (i *installationTokenSource) Owner() string {
+	return i.owner
 }
 
 func (i *installationTokenSource) Token(ctx context.Context, repos []string, perms Permissions) (*InstallationToken, error) {
@@ -74,7 +81,7 @@ func (i *installationTokenSource) generateToken(ctx context.Context, repos []str
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", i.installationID)
+	url := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", i.id)
 
 	var requestBody bytes.Buffer
 

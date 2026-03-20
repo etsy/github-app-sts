@@ -35,8 +35,8 @@ type Config struct {
 
 // AppConfig configures a single GitHub App.
 type AppConfig struct {
-	// ID is the numeric GitHub App ID.
-	ID *int64 `yaml:"id"`
+	// ClientID is the numeric GitHub App ClientID.
+	ClientID *string `yaml:"client_id"`
 
 	// PrivateKey specifies how to obtain the App's private key for JWT signing.
 	PrivateKey PrivateKeyConfig `yaml:"private_key"`
@@ -154,8 +154,8 @@ func (c *AppConfig) validate(fieldName string) []error {
 		return append(errs, fmt.Errorf("'%s' is required", fieldName))
 	}
 
-	if c.ID == nil {
-		errs = append(errs, fmt.Errorf("'%s.id' is required", fieldName))
+	if c.ClientID == nil {
+		errs = append(errs, fmt.Errorf("'%s.client_id' is required", fieldName))
 	}
 
 	if err := c.PrivateKey.validate(fieldName + ".private_key"); err != nil {

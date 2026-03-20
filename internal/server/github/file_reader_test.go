@@ -11,6 +11,10 @@ import (
 
 type fakeInstallationTokenSource struct{}
 
+func (f *fakeInstallationTokenSource) Owner() string {
+	return "fake-owner"
+}
+
 func (f *fakeInstallationTokenSource) Token(_ context.Context, _repos []string, _perms Permissions) (*InstallationToken, error) {
 	return &InstallationToken{
 		AccessToken: "fake-token",
@@ -57,7 +61,7 @@ func TestFileReaderCaching(t *testing.T) {
 	t.Run("first request fetches from server", func(t *testing.T) {
 		fileRequestCount.Store(0)
 
-		content, err := reader.ReadFile(ctx, "owner", "repo", "path")
+		content, err := reader.ReadFile(ctx, "repo", "path")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -74,7 +78,7 @@ func TestFileReaderCaching(t *testing.T) {
 	t.Run("within TTL returns cached content without request", func(t *testing.T) {
 		fileRequestCount.Store(0)
 
-		content, err := reader.ReadFile(ctx, "owner", "repo", "path")
+		content, err := reader.ReadFile(ctx, "repo", "path")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -92,7 +96,7 @@ func TestFileReaderCaching(t *testing.T) {
 		fileRequestCount.Store(0)
 		now = now.Add(fileCacheTTL + time.Second)
 
-		content, err := reader.ReadFile(ctx, "owner", "repo", "path")
+		content, err := reader.ReadFile(ctx, "repo", "path")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -122,7 +126,7 @@ func TestFileReaderCaching(t *testing.T) {
 			w.Write([]byte("file content v2"))
 		})
 
-		content, err := reader.ReadFile(ctx, "owner", "repo", "path")
+		content, err := reader.ReadFile(ctx, "owner", "path")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

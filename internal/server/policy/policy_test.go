@@ -10,8 +10,8 @@ type fakeFileReader struct {
 	files map[string][]byte
 }
 
-func (f *fakeFileReader) ReadFile(_ context.Context, owner, repo, path string) ([]byte, error) {
-	key := fmt.Sprintf("%s/%s/%s", owner, repo, path)
+func (f *fakeFileReader) ReadFile(_ context.Context, repo, path string) ([]byte, error) {
+	key := fmt.Sprintf("%s/%s", repo, path)
 
 	contents, ok := f.files[key]
 	if !ok {
@@ -30,7 +30,7 @@ func TestLoadRepositoryPolicy(t *testing.T) {
 		{
 			name: "valid policy",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -41,7 +41,7 @@ permissions:
 		{
 			name: "valid policy with CEL claims",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: claims.ref == "refs/heads/main"
@@ -52,7 +52,7 @@ permissions:
 		{
 			name: "rejects organization_ prefixed permission",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -74,7 +74,7 @@ permissions:
 		{
 			name: "rejects administration permission",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -85,7 +85,7 @@ permissions:
 		{
 			name: "invalid subject regex",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: "repo:myorg/myrepo:ref:refs/heads/[invalid"
 permissions:
@@ -96,7 +96,7 @@ permissions:
 		{
 			name: "invalid CEL expression",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: not a valid expression !!!
@@ -108,7 +108,7 @@ permissions:
 		{
 			name: "CEL expression must return bool",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: claims.ref
@@ -123,13 +123,13 @@ permissions:
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeFileReader{
 				files: map[string][]byte{
-					"myorg/myrepo/.github/sts/test.yaml": []byte(tt.yaml),
+					"myrepo/.github/sts/test.yaml": []byte(tt.yaml),
 				},
 			}
 
 			loader := NewLoader(reader, "")
 
-			policy, err := loader.LoadRepositoryPolicy(context.Background(), "myorg", "myrepo", "test")
+			policy, err := loader.LoadRepositoryPolicy(context.Background(), "myrepo", "test")
 
 			if tt.wantErr {
 				if err == nil {
@@ -142,8 +142,8 @@ permissions:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if policy.AppID != 12345 {
-				t.Errorf("AppID = %d, want 12345", policy.AppID)
+			if policy.AppClientID != "12345" {
+				t.Errorf("AppID = %s, want '12345'", policy.AppClientID)
 			}
 
 			if policy.Issuer != "https://token.actions.githubusercontent.com" {
@@ -166,7 +166,7 @@ func TestLoadOrganizationPolicy(t *testing.T) {
 		{
 			name: "valid org policy with org permissions",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
@@ -181,7 +181,7 @@ repositories:
 		{
 			name: "valid org policy without repositories",
 			yaml: `
-app_id: 12345
+app_client_id: "12345"
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
@@ -194,13 +194,13 @@ permissions:
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeFileReader{
 				files: map[string][]byte{
-					"myorg/org-policies/.github/sts/test.yaml": []byte(tt.yaml),
+					"org-policies/.github/sts/test.yaml": []byte(tt.yaml),
 				},
 			}
 
 			loader := NewLoader(reader, "org-policies")
 
-			policy, err := loader.LoadOrganizationPolicy(context.Background(), "myorg", "test")
+			policy, err := loader.LoadOrganizationPolicy(context.Background(), "test")
 
 			if tt.wantErr {
 				if err == nil {
@@ -213,8 +213,8 @@ permissions:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if policy.AppID != 12345 {
-				t.Errorf("AppID = %d, want 12345", policy.AppID)
+			if policy.AppClientID != "12345" {
+				t.Errorf("AppID = %s, want '12345'", policy.AppClientID)
 			}
 		})
 	}

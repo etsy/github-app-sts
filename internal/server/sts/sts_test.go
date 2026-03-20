@@ -173,12 +173,12 @@ type fakePolicyLoader struct {
 	calledOrg  bool
 }
 
-func (f *fakePolicyLoader) LoadRepositoryPolicy(_ context.Context, owner, repo, name string) (*policy.Policy, error) {
+func (f *fakePolicyLoader) LoadRepositoryPolicy(_ context.Context, repo, name string) (*policy.Policy, error) {
 	f.calledRepo = true
 	return f.policy, f.err
 }
 
-func (f *fakePolicyLoader) LoadOrganizationPolicy(_ context.Context, owner, name string) (*policy.Policy, error) {
+func (f *fakePolicyLoader) LoadOrganizationPolicy(_ context.Context, name string) (*policy.Policy, error) {
 	f.calledOrg = true
 	return f.policy, f.err
 }
@@ -188,13 +188,17 @@ type fakeTokenSource struct {
 	err   error
 }
 
+func (f *fakeTokenSource) Owner() string {
+	return "myorg"
+}
+
 func (f *fakeTokenSource) Token(_ context.Context, repos []string, perms github.Permissions) (*github.InstallationToken, error) {
 	return f.token, f.err
 }
 
-func testPolicy(appID int64) *policy.Policy {
+func testPolicy(appClientID string) *policy.Policy {
 	p, _ := policy.NewPolicy(
-		appID,
+		appClientID,
 		"https://token.actions.githubusercontent.com",
 		"repo:myorg/myrepo:.*",
 		"",
@@ -225,9 +229,11 @@ func TestExchangeToken(t *testing.T) {
 			name: "successful repo exchange",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://token.actions.githubusercontent.com"},
-				loader:   &fakePolicyLoader{policy: testPolicy(1)},
-				apps: map[int64]github.InstallationTokenSource{
-					1: &fakeTokenSource{token: validToken},
+				loaders:  map[string]policyLoader{"myorg": &fakePolicyLoader{policy: testPolicy("1")}},
+				apps: AppRegistry{
+					"myorg": map[string]github.InstallationTokenSource{
+						"1": &fakeTokenSource{token: validToken},
+					},
 				},
 			},
 			token:        "fake.jwt.token",
@@ -239,9 +245,11 @@ func TestExchangeToken(t *testing.T) {
 			name: "successful org exchange",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://token.actions.githubusercontent.com"},
-				loader:   &fakePolicyLoader{policy: testPolicy(1)},
-				apps: map[int64]github.InstallationTokenSource{
-					1: &fakeTokenSource{token: validToken},
+				loaders:  map[string]policyLoader{"myorg": &fakePolicyLoader{policy: testPolicy("1")}},
+				apps: AppRegistry{
+					"myorg": map[string]github.InstallationTokenSource{
+						"1": &fakeTokenSource{token: validToken},
+					},
 				},
 			},
 			token:       "fake.jwt.token",
@@ -286,7 +294,7 @@ func TestExchangeToken(t *testing.T) {
 			name: "policy load fails",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://issuer.example.com"},
-				loader:   &fakePolicyLoader{err: fmt.Errorf("not found")},
+				loaders:  map[string]policyLoader{"myorg": &fakePolicyLoader{err: fmt.Errorf("not found")}},
 			},
 			token:       "fake.jwt.token",
 			resource:    "https://github.com/myorg/myrepo",
@@ -301,7 +309,7 @@ func TestExchangeToken(t *testing.T) {
 					issuer:    "https://token.actions.githubusercontent.com",
 					verifyErr: fmt.Errorf("token rejected"),
 				},
-				loader: &fakePolicyLoader{policy: testPolicy(1)},
+				loaders: map[string]policyLoader{"myorg": &fakePolicyLoader{policy: testPolicy("1")}},
 			},
 			token:       "fake.jwt.token",
 			resource:    "https://github.com/myorg/myrepo",
@@ -310,11 +318,11 @@ func TestExchangeToken(t *testing.T) {
 			wantErrKind: ErrKindInvalidToken,
 		},
 		{
-			name: "unknown app ID",
+			name: "unknown app client ID",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://token.actions.githubusercontent.com"},
-				loader:   &fakePolicyLoader{policy: testPolicy(99)},
-				apps:     map[int64]github.InstallationTokenSource{},
+				loaders:  map[string]policyLoader{"myorg": &fakePolicyLoader{policy: testPolicy("99")}},
+				apps:     AppRegistry{},
 			},
 			token:       "fake.jwt.token",
 			resource:    "https://github.com/myorg/myrepo",
@@ -326,10 +334,11 @@ func TestExchangeToken(t *testing.T) {
 			name: "token source fails",
 			service: &Service{
 				verifier: &fakeVerifier{issuer: "https://token.actions.githubusercontent.com"},
-				loader:   &fakePolicyLoader{policy: testPolicy(1)},
-				apps: map[int64]github.InstallationTokenSource{
-					1: &fakeTokenSource{err: fmt.Errorf("github error")},
-				},
+				loaders:  map[string]policyLoader{"myorg": &fakePolicyLoader{policy: testPolicy("1")}},
+				apps: AppRegistry{
+					"myorg": map[string]github.InstallationTokenSource{
+						"1": &fakeTokenSource{err: fmt.Errorf("github error")},
+					}},
 			},
 			token:       "fake.jwt.token",
 			resource:    "https://github.com/myorg/myrepo",
@@ -365,7 +374,7 @@ func TestExchangeToken(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if loader, ok := tt.service.loader.(*fakePolicyLoader); ok {
+			if loader, ok := tt.service.loaders["myorg"].(*fakePolicyLoader); ok {
 				if tt.wantRepoLoad && !loader.calledRepo {
 					t.Error("expected LoadRepositoryPolicy to be called")
 				}
