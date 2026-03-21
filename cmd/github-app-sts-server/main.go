@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/ericnorris/github-app-sts/internal/server"
 	"github.com/ericnorris/github-app-sts/internal/server/config"
@@ -48,8 +49,11 @@ func run(logger *slog.Logger) error {
 	handler, err := initHandler(ctx, logger, cfg)
 
 	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", *cfg.Port),
-		Handler: handler,
+		Addr:         fmt.Sprintf(":%d", *cfg.Port),
+		Handler:      handler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {

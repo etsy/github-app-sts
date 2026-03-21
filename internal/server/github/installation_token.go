@@ -115,6 +115,8 @@ func (i *installationTokenSource) generateToken(ctx context.Context, repos []str
 		return nil, err
 	}
 
+	defer response.Body.Close()
+
 	body, err := io.ReadAll(response.Body)
 
 	if err != nil {
@@ -143,8 +145,8 @@ func newTokenCacheKey(repositories []string, permissions Permissions) tokenCache
 	e := json.NewEncoder(h)
 
 	err := e.Encode(struct {
-		r []string
-		p Permissions
+		R []string     `json:"r"`
+		P Permissions  `json:"p"`
 	}{repositories, permissions})
 
 	if err != nil {
@@ -166,5 +168,5 @@ func (t *InstallationToken) Expired(now time.Time) bool {
 		return true
 	}
 
-	return t.ExpiresAt.Sub(now) > (30 * time.Minute)
+	return t.ExpiresAt.Sub(now) < (30 * time.Minute)
 }

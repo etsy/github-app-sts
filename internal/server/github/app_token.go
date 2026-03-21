@@ -100,5 +100,5 @@ func (t *AppToken) Expired(now time.Time) bool {
 		return true
 	}
 
-	return t.exp.Sub(now) > (60 * time.Second)
+	return t.exp.Sub(now) < (60 * time.Second)
 }
