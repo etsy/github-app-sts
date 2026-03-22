@@ -22,16 +22,12 @@ type service interface {
 	ExchangeToken(ctx context.Context, subjectToken, resource, scope string) (*sts.Result, error)
 }
 
-type Handler struct {
+type tokenHandler struct {
 	sts    service
 	logger *slog.Logger
 }
 
-func NewHandler(service *sts.Service, logger *slog.Logger) *Handler {
-	return &Handler{service, logger}
-}
-
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.writeError(w, &errorResponse{http.StatusMethodNotAllowed, "invalid_request", "method not allowed"})
 		return
@@ -131,7 +127,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) logExchange(level slog.Level, d *sts.ExchangeDetails, err error) {
+func (h *tokenHandler) logExchange(level slog.Level, d *sts.ExchangeDetails, err error) {
 	attrs := []slog.Attr{
 		slog.Group(
 			"exchange_details",
@@ -164,7 +160,7 @@ type errorResponse struct {
 	Description string `json:"error_description"`
 }
 
-func (h *Handler) writeError(w http.ResponseWriter, response *errorResponse) {
+func (h *tokenHandler) writeError(w http.ResponseWriter, response *errorResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(response.Status)
 
@@ -179,7 +175,7 @@ type successResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 }
 
-func (h *Handler) writeSuccess(w http.ResponseWriter, response *successResponse) {
+func (h *tokenHandler) writeSuccess(w http.ResponseWriter, response *successResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 

@@ -45,7 +45,7 @@ func validResult() *sts.Result {
 	}
 }
 
-func TestHandler(t *testing.T) {
+func TestTokenHandler(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&strings.Builder{}, nil))
 
 	tests := []struct {
@@ -215,7 +215,7 @@ func TestHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := &Handler{sts: tt.exchanger, logger: logger}
+			handler := &tokenHandler{sts: tt.exchanger, logger: logger}
 
 			body := strings.NewReader(tt.form.Encode())
 			req := httptest.NewRequest(tt.method, "/token", body)
