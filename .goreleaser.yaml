@@ -1,0 +1,6 @@
+version: 2
+builds:
+  - main: ./cmd/github-app-sts-server
+    binary: github-app-sts-server
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]

@@ -1,0 +1,93 @@
+name: Release
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: go
+
+  goreleaser:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build and publish Go binaries
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  action-tag:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Build GitHub Action
+        run: cd action && npm ci && npm run build
+
+      - name: Publish signed GitHub Action tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release-please.outputs.tag_name }}"
+          REPO="${{ github.repository }}"
+
+          # Get the release tag's commit SHA and tree SHA
+          TAG_SHA=$(gh api "repos/${REPO}/git/ref/tags/${VERSION}" --jq '.object.sha')
+          TREE_SHA=$(gh api "repos/${REPO}/git/commits/${TAG_SHA}" --jq '.tree.sha')
+
+          # 1. Create blob for built dist/index.js (base64 encoded)
+          BLOB_SHA=$(base64 -i action/dist/index.js | jq -Rs '{content: ., encoding: "base64"}' \
+            | gh api "repos/${REPO}/git/blobs" --input - --jq '.sha')
+
+          # 2. Create tree: release tag's tree + dist/index.js
+          DIST_TREE_SHA=$(jq -n \
+            --arg base_tree "$TREE_SHA" \
+            --arg sha "$BLOB_SHA" \
+            '{base_tree: $base_tree, tree: [{path: "action/dist/index.js", mode: "100644", type: "blob", sha: $sha}]}' \
+            | gh api "repos/${REPO}/git/trees" --input - --jq '.sha')
+
+          # 3. Create commit (auto-signed by GitHub)
+          COMMIT_SHA=$(gh api "repos/${REPO}/git/commits" \
+            -f "message=chore: build action dist for ${VERSION}" \
+            -f "tree=${DIST_TREE_SHA}" \
+            -f "parents[]=${TAG_SHA}" \
+            --jq '.sha')
+
+          # 4. Create immutable action tag (action/v1.2.0)
+          gh api "repos/${REPO}/git/refs" \
+            -f "ref=refs/tags/action/${VERSION}" \
+            -f "sha=${COMMIT_SHA}"
