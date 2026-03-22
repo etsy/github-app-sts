@@ -1,0 +1,19 @@
+{
+  "name": "github-app-sts-action",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=esm --platform=node --target=node20 --outfile=dist/index.js --minify-whitespace --minify-syntax --alias:undici=./src/shims/undici.ts --alias:tunnel=./src/shims/tunnel.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@actions/core": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

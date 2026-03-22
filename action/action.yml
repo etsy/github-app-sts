@@ -1,0 +1,22 @@
+name: 'GitHub App STS Token Exchange'
+description: 'Exchange a GitHub Actions OIDC token for a GitHub App installation token via an RFC 8693 STS'
+inputs:
+  sts-url:
+    description: 'Base URL of the STS server (e.g., https://sts.example.com). Also used as the OIDC audience.'
+    required: true
+  policy:
+    description: 'Policy name to request'
+    required: true
+  target:
+    description: 'Target GitHub org or repo URI (e.g., https://github.com/org or https://github.com/org/repo)'
+    required: true
+  token-variable:
+    description: 'Environment variable name to export the token as (optional).'
+    required: false
+    default: ''
+outputs:
+  token:
+    description: 'The GitHub App installation token'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

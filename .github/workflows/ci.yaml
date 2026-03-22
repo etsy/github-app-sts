@@ -1,0 +1,61 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run Go unit & integration tests
+        run: go test ./... -v
+        env:
+          INTEGRATION_TEST: all
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_CLIENT_ID: Iv23liu92CfRuUv7bwu9
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
+          GITHUB_APP_INSTALLATION_ID: "117178672"
+          GITHUB_INTEGRATION_TEST_OWNER: ${{ github.repository_owner }}
+          GITHUB_INTEGRATION_TEST_REPO: github-app-sts
+
+      - name: Run GitHub Action unit tests
+        run: cd action && npm ci && npm test
+
+      - name: Build GitHub Action
+        run: cd action && npm run build
+
+      - name: Start STS server for GitHub Action integration test
+        run: go run ./cmd/github-app-sts-server/ --config .github/this-config-is-used-in-ci.yaml &
+        env:
+          STS_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
+
+      - name: Wait for STS server
+        run: timeout 30 bash -c 'until curl -sf http://localhost:8080/ready; do sleep 1; done'
+
+      - name: Perform token exchange via GitHub Action
+        uses: ./action
+        id: sts
+        with:
+          sts-url: http://localhost:8080
+          policy: this-policy-is-used-in-a-ci-integration-test
+          target: https://github.com/${{ github.repository }}
+
+      - name: Verify exchanged token works
+        run: gh api repos/${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ steps.sts.outputs.token }}

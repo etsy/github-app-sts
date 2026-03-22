@@ -1,0 +1,10 @@
+# This points to a test app connected to github.com/ericnorris. You must change this if you are running this in a
+# different repository.
+app_client_id: Iv23liu92CfRuUv7bwu9
+
+# Hardcoded issuer and subject from the GitHub Actions OIDC server.
+issuer: "https://token.actions.githubusercontent.com"
+subject: "repo:ericnorris/github-app-sts:.*"
+
+permissions:
+  contents: read
