@@ -19,6 +19,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
 	"github.com/ericnorris/github-app-sts/internal/server"
 	"github.com/ericnorris/github-app-sts/internal/server/config"
+	"github.com/ericnorris/github-app-sts/internal/testutil"
 )
 
 const (
@@ -26,28 +27,14 @@ const (
 	oidcTestIssuer = "http://localhost:19876"
 )
 
-func mustGetenv(t *testing.T, key string) string {
-	t.Helper()
-
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-
-	t.Fatalf("missing or empty environment variable '%s'", key)
-
-	return ""
-}
-
 func TestTokenExchangeIntegration(t *testing.T) {
-	if _, ok := os.LookupEnv("GITHUB_INTEGRATION_TEST"); !ok {
-		t.Skip("set GITHUB_INTEGRATION_TEST to run")
-	}
+	testutil.SkipUnlessIntegrationTest(t, "server")
 
-	clientID := mustGetenv(t, "GITHUB_APP_CLIENT_ID")
-	installationID := mustGetenv(t, "GITHUB_APP_INSTALLATION_ID")
-	owner := mustGetenv(t, "GITHUB_INTEGRATION_TEST_OWNER")
-	repo := mustGetenv(t, "GITHUB_INTEGRATION_TEST_REPO")
-	scope := getenvOrDefault("GITHUB_INTEGRATION_TEST_SCOPE", "this-policy-is-used-in-a-local-integration-test")
+	clientID := testutil.MustGetenv(t, "GITHUB_APP_CLIENT_ID")
+	installationID := testutil.MustGetenv(t, "GITHUB_APP_INSTALLATION_ID")
+	owner := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_OWNER")
+	repo := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_REPO")
+	scope := testutil.GetenvOrDefault("GITHUB_INTEGRATION_TEST_SCOPE", "this-policy-is-used-in-a-local-integration-test")
 
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -186,14 +173,6 @@ func TestTokenExchangeIntegration(t *testing.T) {
 	}
 
 	t.Log("successfully verified token against GitHub API")
-}
-
-func getenvOrDefault(key, fallback string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-
-	return fallback
 }
 
 func ptr(s string) *string {
