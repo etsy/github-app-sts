@@ -25,20 +25,52 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write  # Required for WIF OIDC and cosign keyless signing
+    env:
+      GAR_IMAGE: us-central1-docker.pkg.dev/etsy-github-tooling-prod/github-app-sts-binaries/github-app-sts-server
     steps:
-      - uses: actions/checkout@v6
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           filter: blob:none
-      - uses: actions/setup-go@v6
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: 'projects/454188917020/locations/global/workloadIdentityPools/github-app-sts-gha/providers/etsy-github'
+          service_account: 'github-app-sts-main-gha@etsy-github-tooling-prod.iam.gserviceaccount.com'
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      - name: Configure Docker for GAR
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version-file: go.mod
-      - name: Build and publish Go binaries
-        uses: goreleaser/goreleaser-action@v6
+
+      - name: Build and publish Go binaries and Docker image
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
         with:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print immutable image reference
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          DIGEST="$(docker buildx imagetools inspect "${GAR_IMAGE}:${TAG}" --format '{{.Manifest.Digest}}')"
+          echo "::notice::Docker image: ${GAR_IMAGE}:${TAG}@${DIGEST}"
 
   action-tag:
     needs: release-please
