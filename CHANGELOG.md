@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/etsy/github-app-sts/compare/v1.0.0...v1.1.0) (2026-03-23)
+
+
+### Features
+
+* publish signed Docker image to GAR on release ([#7](https://github.com/etsy/github-app-sts/issues/7)) ([fbea1db](https://github.com/etsy/github-app-sts/commit/fbea1db718738df343c630cb11be7a245bcd7b27))
+
 ## 1.0.0 (2026-03-23)
 
 
