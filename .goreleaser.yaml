@@ -2,5 +2,38 @@ version: 2
 builds:
   - main: ./cmd/github-app-sts-server
     binary: github-app-sts-server
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+
+signs:
+  - cmd: cosign
+    args:
+      - sign-blob
+      - --yes
+      - --bundle
+      - '${artifact}.bundle'
+      - '${artifact}'
+    artifacts: binary
+
+docker_signs:
+  - cmd: cosign
+    args:
+      - sign
+      - --yes
+      - '${artifact}'
+    artifacts: all
+
+dockers_v2:
+  - images:
+      - us-central1-docker.pkg.dev/etsy-github-tooling-prod/github-app-sts-binaries/github-app-sts-server
+    dockerfile: Dockerfile
+    tags:
+      - 'v{{ .Version }}'
+      - '{{ .FullCommit }}'
+      - latest
+    platforms:
+      - linux/amd64
