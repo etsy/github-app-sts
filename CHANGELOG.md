@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/etsy/github-app-sts/compare/v1.0.0...v1.1.0) (2026-03-23)
+
+
+### Features
+
+* add Github Action for pushing minimal Docker image to GAR ([#1](https://github.com/etsy/github-app-sts/issues/1)) ([6e49b87](https://github.com/etsy/github-app-sts/commit/6e49b8700a49f168e6386062bbc78dc57f4470fd))
+
 ## 1.0.0 (2026-03-23)
 
 
