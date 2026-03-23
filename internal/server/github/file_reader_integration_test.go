@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server/github"
-	"github.com/ericnorris/github-app-sts/internal/testutil"
+	"github.com/etsy/github-app-sts/internal/server/github"
+	"github.com/etsy/github-app-sts/internal/testutil"
 )
 
 const (

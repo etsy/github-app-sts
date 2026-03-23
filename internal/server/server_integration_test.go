@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
-	"github.com/ericnorris/github-app-sts/internal/server"
-	"github.com/ericnorris/github-app-sts/internal/server/config"
-	"github.com/ericnorris/github-app-sts/internal/testutil"
+	"github.com/etsy/github-app-sts/internal/server"
+	"github.com/etsy/github-app-sts/internal/server/config"
+	"github.com/etsy/github-app-sts/internal/testutil"
 )
 
 const (

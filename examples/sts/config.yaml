@@ -40,5 +40,5 @@ sts_target_apps:
 
 # Organization-level configuration.
 # Maps org names to the repository that holds their trust policies.
-orgs:
+org_policy_repos:
   myorg: ".github-sts"

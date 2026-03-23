@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server/github"
-	"github.com/ericnorris/github-app-sts/internal/server/policy"
+	"github.com/etsy/github-app-sts/internal/server/github"
+	"github.com/etsy/github-app-sts/internal/server/policy"
 )
 
 func TestParseResource(t *testing.T) {

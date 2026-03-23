@@ -10,9 +10,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/ericnorris/github-app-sts/internal/server/github"
-	"github.com/ericnorris/github-app-sts/internal/server/oidc"
-	"github.com/ericnorris/github-app-sts/internal/server/policy"
+	"github.com/etsy/github-app-sts/internal/server/github"
+	"github.com/etsy/github-app-sts/internal/server/oidc"
+	"github.com/etsy/github-app-sts/internal/server/policy"
 )
 
 // AppRegistry is a map of org (owner) -> client ID -> InstallationTokenSource.

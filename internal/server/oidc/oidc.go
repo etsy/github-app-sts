@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/ericnorris/github-app-sts/internal/server/policy"
+	"github.com/etsy/github-app-sts/internal/server/policy"
 )
 
 type Verifier struct {

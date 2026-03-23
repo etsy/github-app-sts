@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server"
-	"github.com/ericnorris/github-app-sts/internal/server/config"
+	"github.com/etsy/github-app-sts/internal/server"
+	"github.com/etsy/github-app-sts/internal/server/config"
 )
 
 var configPath = flag.String("config", "", "path to config file")

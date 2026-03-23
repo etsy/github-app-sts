@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ericnorris/github-app-sts/internal/server/github"
+	"github.com/etsy/github-app-sts/internal/server/github"
 	"github.com/google/cel-go/cel"
 	"gopkg.in/yaml.v3"
 )

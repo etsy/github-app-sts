@@ -27,9 +27,9 @@ jobs:
         env:
           INTEGRATION_TEST: all
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CLIENT_ID: Iv23liu92CfRuUv7bwu9
+          GITHUB_APP_CLIENT_ID: Iv23liUtvQx3kl2stqLg
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
-          GITHUB_APP_INSTALLATION_ID: "117178672"
+          GITHUB_APP_INSTALLATION_ID: "118441687"
           GITHUB_INTEGRATION_TEST_OWNER: ${{ github.repository_owner }}
           GITHUB_INTEGRATION_TEST_REPO: github-app-sts
 

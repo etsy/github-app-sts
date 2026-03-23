@@ -12,7 +12,7 @@ import (
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
-	"github.com/ericnorris/github-app-sts/internal/server/policy"
+	"github.com/etsy/github-app-sts/internal/server/policy"
 )
 
 func TestExtractIssuer(t *testing.T) {

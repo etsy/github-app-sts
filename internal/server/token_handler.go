@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server/sts"
+	"github.com/etsy/github-app-sts/internal/server/sts"
 )
 
 const (

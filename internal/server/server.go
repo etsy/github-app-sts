@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server/config"
-	"github.com/ericnorris/github-app-sts/internal/server/github"
-	"github.com/ericnorris/github-app-sts/internal/server/github/appkey"
-	"github.com/ericnorris/github-app-sts/internal/server/oidc"
-	"github.com/ericnorris/github-app-sts/internal/server/policy"
-	"github.com/ericnorris/github-app-sts/internal/server/sts"
+	"github.com/etsy/github-app-sts/internal/server/config"
+	"github.com/etsy/github-app-sts/internal/server/github"
+	"github.com/etsy/github-app-sts/internal/server/github/appkey"
+	"github.com/etsy/github-app-sts/internal/server/oidc"
+	"github.com/etsy/github-app-sts/internal/server/policy"
+	"github.com/etsy/github-app-sts/internal/server/sts"
 )
 
 func New(ctx context.Context, logger *slog.Logger, cfg *config.Config) (*http.Server, error) {

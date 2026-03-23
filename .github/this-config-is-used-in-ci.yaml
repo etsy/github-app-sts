@@ -5,15 +5,15 @@ allowed_issuers:
   - "https://token.actions.githubusercontent.com"
 
 policy_reader_app:
-  client_id: "Iv23liu92CfRuUv7bwu9"
+  client_id: "Iv23liUtvQx3kl2stqLg"
   private_key:
     env_var: STS_PRIVATE_KEY
   installations:
-    ericnorris: 117178672
+    etsy: 118441687
 
 sts_target_apps:
-  - client_id: "Iv23liu92CfRuUv7bwu9"
+  - client_id: "Iv23liUtvQx3kl2stqLg"
     private_key:
       env_var: STS_PRIVATE_KEY
     installations:
-      ericnorris: 117178672
+      etsy: 118441687

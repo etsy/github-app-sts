@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ericnorris/github-app-sts/internal/server/github/appkey"
+	"github.com/etsy/github-app-sts/internal/server/github/appkey"
 )
 
 type AppTokenSource struct {

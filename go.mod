@@ -1,4 +1,4 @@
-module github.com/ericnorris/github-app-sts
+module github.com/etsy/github-app-sts
 
 go 1.25.5
 
