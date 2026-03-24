@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/etsy/github-app-sts/internal/observability"
 	"github.com/etsy/github-app-sts/internal/server"
 	"github.com/etsy/github-app-sts/internal/server/config"
 )
@@ -20,7 +21,12 @@ var configPath = flag.String("config", "", "path to config file")
 func main() {
 	ctx := context.Background()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(
+		observability.NewTraceHandler(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		),
+	)
+
 	slog.SetDefault(logger)
 
 	if err := run(ctx, logger); err != nil {
@@ -45,6 +51,12 @@ func run(mainCtx context.Context, logger *slog.Logger) error {
 		return err
 	}
 
+	shutdownOTel, err := observability.Setup(signalCtx)
+
+	if err != nil {
+		return fmt.Errorf("could not initialize telemetry: %w", err)
+	}
+
 	httpServer, err := server.New(signalCtx, logger, cfg)
 
 	if err != nil {
@@ -58,6 +70,10 @@ func run(mainCtx context.Context, logger *slog.Logger) error {
 		defer cancel()
 
 		httpServer.Shutdown(shutdownCtx)
+
+		if shutdownOTel != nil {
+			shutdownOTel(shutdownCtx)
+		}
 	}()
 
 	logger.Info("starting server", "port", *cfg.Port)

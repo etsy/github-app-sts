@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	"github.com/etsy/github-app-sts/internal/server/config"
 	"github.com/etsy/github-app-sts/internal/server/github"
 	"github.com/etsy/github-app-sts/internal/server/github/appkey"
@@ -29,9 +31,15 @@ func New(ctx context.Context, logger *slog.Logger, cfg *config.Config) (*http.Se
 	mux.Handle("/token", tokenHandler)
 	mux.Handle("/ready", &readyHandler{})
 
+	handler := otelhttp.NewHandler(mux, "github-app-sts",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/ready"
+		}),
+	)
+
 	return &http.Server{
 		Addr:    fmt.Sprintf(":%d", *cfg.Port),
-		Handler: mux,
+		Handler: handler,
 
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -48,13 +56,17 @@ func initTokenHandler(ctx context.Context, logger *slog.Logger, cfg *config.Conf
 
 	logger.Info("initialized verifier", "allowed_issuers", cfg.AllowedIssuers, "audience", *cfg.Audience)
 
-	loaders, err := initPolicyLoaders(ctx, logger, cfg.PolicyReaderApp, cfg.OrgPolicyRepos)
+	httpClient := &http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+
+	loaders, err := initPolicyLoaders(ctx, logger, cfg.PolicyReaderApp, cfg.OrgPolicyRepos, httpClient)
 
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize policy loaders: %w", err)
 	}
 
-	apps, err := initAppRegistry(ctx, cfg.STSTargetApps)
+	apps, err := initAppRegistry(ctx, cfg.STSTargetApps, httpClient)
 
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize app registry: %w", err)
@@ -63,7 +75,7 @@ func initTokenHandler(ctx context.Context, logger *slog.Logger, cfg *config.Conf
 	return &tokenHandler{sts.New(verifier, loaders, apps), logger}, nil
 }
 
-func initPolicyLoaders(ctx context.Context, logger *slog.Logger, appCfg *config.AppConfig, orgRepos map[string]string) (map[string]*policy.Loader, error) {
+func initPolicyLoaders(ctx context.Context, logger *slog.Logger, appCfg *config.AppConfig, orgRepos map[string]string, httpClient *http.Client) (map[string]*policy.Loader, error) {
 	policyReaderApp, err := initAppTokenSource(ctx, appCfg)
 
 	if err != nil {
@@ -77,8 +89,8 @@ func initPolicyLoaders(ctx context.Context, logger *slog.Logger, appCfg *config.
 	for org, installationID := range appCfg.Installations {
 		loaders[org] = policy.NewLoader(
 			github.NewFileReader(
-				github.NewInstallationTokenSource(policyReaderApp, org, strconv.FormatInt(installationID, 10), nil),
-				nil,
+				github.NewInstallationTokenSource(policyReaderApp, org, strconv.FormatInt(installationID, 10), httpClient),
+				httpClient,
 			),
 			orgRepos[org],
 		)
@@ -89,7 +101,7 @@ func initPolicyLoaders(ctx context.Context, logger *slog.Logger, appCfg *config.
 	return loaders, nil
 }
 
-func initAppRegistry(ctx context.Context, appCfgs []*config.AppConfig) (sts.AppRegistry, error) {
+func initAppRegistry(ctx context.Context, appCfgs []*config.AppConfig, httpClient *http.Client) (sts.AppRegistry, error) {
 	apps := sts.AppRegistry{}
 
 	for _, targetAppCfg := range appCfgs {
@@ -108,7 +120,7 @@ func initAppRegistry(ctx context.Context, appCfgs []*config.AppConfig) (sts.AppR
 			}
 
 			installations[*targetAppCfg.ClientID] = github.NewInstallationTokenSource(
-				targetApp, org, strconv.FormatInt(installationID, 10), nil,
+				targetApp, org, strconv.FormatInt(installationID, 10), httpClient,
 			)
 		}
 	}

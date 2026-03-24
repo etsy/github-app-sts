@@ -4,11 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/etsy/github-app-sts/internal/server/sts"
+)
+
+var meter = otel.Meter("github-app-sts/token-handler")
+
+var exchangeCounter, _ = meter.Int64Counter(
+	"sts.token_exchange.total",
+	metric.WithDescription("Total token exchange attempts"),
 )
 
 const (
@@ -28,6 +40,8 @@ type tokenHandler struct {
 }
 
 func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	if r.Method != http.MethodPost {
 		h.writeError(w, &errorResponse{http.StatusMethodNotAllowed, "invalid_request", "method not allowed"})
 		return
@@ -83,10 +97,14 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.sts.ExchangeToken(r.Context(), subjectToken, resource, scope)
+	result, err := h.sts.ExchangeToken(ctx, subjectToken, resource, scope)
 
 	if err != nil {
 		response := &errorResponse{http.StatusInternalServerError, "server_error", "internal server error"}
+
+		attrs := []attribute.KeyValue{
+			attribute.String("error.type", fmt.Sprintf("%T", err)),
+		}
 
 		var stsError *sts.Error
 
@@ -108,16 +126,30 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			}
 
-			h.logExchange(logLevel, stsError.Details, stsError.Unwrap())
+			attrs = append(
+				attrs,
+				attribute.String("sts.error", response.Error),
+				attribute.String("sts.target_org", stsError.Details.TargetOrganization),
+				attribute.String("sts.target_repo", stsError.Details.TargetRepository),
+			)
+
+			h.logExchange(ctx, logLevel, stsError.Details, stsError.Unwrap())
 		} else {
 			h.logger.Error("unexpected error type from exchange", "error", err)
 		}
+
+		exchangeCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 
 		h.writeError(w, response)
 		return
 	}
 
-	h.logExchange(slog.LevelInfo, result.Details, nil)
+	exchangeCounter.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("sts.target_org", result.Details.TargetOrganization),
+		attribute.String("sts.target_repo", result.Details.TargetRepository),
+	))
+
+	h.logExchange(ctx, slog.LevelInfo, result.Details, nil)
 
 	h.writeSuccess(w, &successResponse{
 		AccessToken:     result.Token.AccessToken,
@@ -127,7 +159,7 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *tokenHandler) logExchange(level slog.Level, d *sts.ExchangeDetails, err error) {
+func (h *tokenHandler) logExchange(ctx context.Context, level slog.Level, d *sts.ExchangeDetails, err error) {
 	attrs := []slog.Attr{
 		slog.Group(
 			"exchange_details",
@@ -147,11 +179,11 @@ func (h *tokenHandler) logExchange(level slog.Level, d *sts.ExchangeDetails, err
 			slog.String("error", err.Error()),
 		)
 
-		h.logger.LogAttrs(context.Background(), level, "token exchange failed", attrs...)
+		h.logger.LogAttrs(ctx, level, "token exchange failed", attrs...)
 		return
 	}
 
-	h.logger.LogAttrs(context.Background(), level, "token exchange succeeded", attrs...)
+	h.logger.LogAttrs(ctx, level, "token exchange succeeded", attrs...)
 }
 
 type errorResponse struct {

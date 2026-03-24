@@ -12,6 +12,15 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
+)
+
+var installationTokenMeter = otel.Meter("github-app-sts/github")
+
+var (
+	installationTokenCacheHit, _  = installationTokenMeter.Int64Counter("sts.installation_token_cache.hit", metric.WithDescription("Installation token cache hits"))
+	installationTokenCacheMiss, _ = installationTokenMeter.Int64Counter("sts.installation_token_cache.miss", metric.WithDescription("Installation token cache misses"))
 )
 
 const (
@@ -60,8 +69,12 @@ func (i *installationTokenSource) Token(ctx context.Context, repos []string, per
 	cacheEntry, _ := i.cache.Get(key)
 
 	if !cacheEntry.Expired(now) {
+		installationTokenCacheHit.Add(ctx, 1)
+
 		return cacheEntry, nil
 	}
+
+	installationTokenCacheMiss.Add(ctx, 1)
 
 	token, err := i.generateToken(ctx, repos, perms)
 
@@ -145,8 +158,8 @@ func newTokenCacheKey(repositories []string, permissions Permissions) tokenCache
 	e := json.NewEncoder(h)
 
 	err := e.Encode(struct {
-		R []string     `json:"r"`
-		P Permissions  `json:"p"`
+		R []string    `json:"r"`
+		P Permissions `json:"p"`
 	}{repositories, permissions})
 
 	if err != nil {

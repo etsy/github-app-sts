@@ -8,6 +8,15 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
+)
+
+var fileMeter = otel.Meter("github-app-sts/github")
+
+var (
+	policyCacheHit, _  = fileMeter.Int64Counter("sts.policy_cache.hit", metric.WithDescription("Policy file cache hits"))
+	policyCacheMiss, _ = fileMeter.Int64Counter("sts.policy_cache.miss", metric.WithDescription("Policy file cache misses"))
 )
 
 const (
@@ -44,8 +53,12 @@ func (f *FileReader) ReadFile(ctx context.Context, repo, path string) ([]byte, e
 	cacheEntry, _ := f.cache.Get(url)
 
 	if !cacheEntry.Expired(now) {
+		policyCacheHit.Add(ctx, 1)
+
 		return cacheEntry.content, nil
 	}
+
+	policyCacheMiss.Add(ctx, 1)
 
 	if err := f.readFile(ctx, url, &cacheEntry); err != nil {
 		return nil, err

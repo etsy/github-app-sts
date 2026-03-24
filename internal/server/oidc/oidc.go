@@ -10,8 +10,12 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"go.opentelemetry.io/otel"
+
 	"github.com/etsy/github-app-sts/internal/server/policy"
 )
+
+var tracer = otel.Tracer("github-app-sts/oidc")
 
 type Verifier struct {
 	verifiers map[string]*oidc.IDTokenVerifier
@@ -71,6 +75,9 @@ func (v *Verifier) ExtractIssuer(token string) (string, error) {
 }
 
 func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, policy *policy.Policy) error {
+	ctx, span := tracer.Start(ctx, "oidc.verify")
+	defer span.End()
+
 	verifier, ok := v.verifiers[issuer]
 
 	if !ok {
