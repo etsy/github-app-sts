@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/etsy/github-app-sts/compare/v1.1.0...v1.2.0) (2026-03-24)
+
+
+### Features
+
+* add OpenTelemetry tracing and metrics ([2b16c82](https://github.com/etsy/github-app-sts/commit/2b16c82b6ee8f6216d7143390eb7e229eecbb920))
+* use node24 for action since node20 is deprecated ([50e899a](https://github.com/etsy/github-app-sts/commit/50e899a4c8732c46cae70fd077ba0f44fd4e5bf0))
+
 ## [1.1.0](https://github.com/etsy/github-app-sts/compare/v1.0.0...v1.1.0) (2026-03-23)
 
 
