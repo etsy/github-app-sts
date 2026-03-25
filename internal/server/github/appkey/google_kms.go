@@ -24,9 +24,6 @@ func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*Goo
 		return nil, fmt.Errorf("could not construct KMS client: %w", err)
 	}
 
-	// Use GetPublicKey instead of GetCryptoKeyVersion so that the service account
-	// only needs roles/cloudkms.signerVerifier (which includes viewPublicKey)
-	// rather than the broader roles/cloudkms.viewer (which includes cryptoKeyVersions.get).
 	publicKey, err := client.GetPublicKey(ctx, &kmspb.GetPublicKeyRequest{
 		Name: resourceID,
 	})
