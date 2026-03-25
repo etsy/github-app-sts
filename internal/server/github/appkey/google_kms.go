@@ -11,13 +11,13 @@ import (
 var _ AppKey = (*GoogleKMS)(nil)
 
 type GoogleKMS struct {
-	clientID   string
-	resourceID string
+	clientID      string
+	kmsResourceID string
 
 	client *cloudkms.KeyManagementClient
 }
 
-func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*GoogleKMS, error) {
+func NewGoogleKMS(ctx context.Context, clientID string, kmsResourceID string) (*GoogleKMS, error) {
 	client, err := cloudkms.NewKeyManagementClient(ctx)
 
 	if err != nil {
@@ -25,7 +25,7 @@ func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*Goo
 	}
 
 	publicKey, err := client.GetPublicKey(ctx, &kmspb.GetPublicKeyRequest{
-		Name: resourceID,
+		Name: kmsResourceID,
 	})
 
 	if err != nil {
@@ -39,7 +39,7 @@ func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*Goo
 		return nil, fmt.Errorf("KMS key must be of type RSA_SIGN_PKCS1_*_SHA256")
 	}
 
-	return &GoogleKMS{clientID, resourceID, client}, nil
+	return &GoogleKMS{clientID, kmsResourceID, client}, nil
 }
 
 func (s *GoogleKMS) ClientID() string {
@@ -51,7 +51,7 @@ func (s *GoogleKMS) SignRS256(
 	digest [32]byte,
 ) ([]byte, error) {
 	signRequest := &kmspb.AsymmetricSignRequest{
-		Name:   s.resourceID,
+		Name:   s.kmsResourceID,
 		Digest: &kmspb.Digest{Digest: &kmspb.Digest_Sha256{Sha256: digest[:]}},
 	}
 
