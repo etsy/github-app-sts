@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/etsy/github-app-sts/compare/v1.2.0...v1.2.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* use getPublicKey to retrieve key algorithms ([#10](https://github.com/etsy/github-app-sts/issues/10)) ([fab64bb](https://github.com/etsy/github-app-sts/commit/fab64bb15c6f9f9c95d352bc1bd64eed9eddd631))
+
 ## [1.2.0](https://github.com/etsy/github-app-sts/compare/v1.1.0...v1.2.0) (2026-03-24)
 
 
