@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/etsy/github-app-sts/compare/v1.2.1...v1.3.0) (2026-03-25)
+
+
+### Features
+
+* use autoexport to dynamically select OTEL protocol ([#13](https://github.com/etsy/github-app-sts/issues/13)) ([81a7aa1](https://github.com/etsy/github-app-sts/commit/81a7aa1ac6886bc7943eba3949579fa7761f00ab))
+
 ## [1.2.1](https://github.com/etsy/github-app-sts/compare/v1.2.0...v1.2.1) (2026-03-25)
 
 
