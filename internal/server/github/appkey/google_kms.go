@@ -11,10 +11,10 @@ import (
 var _ AppKey = (*GoogleKMS)(nil)
 
 type GoogleKMS struct {
-	clientID string
+	clientID   string
+	resourceID string
 
-	client     *cloudkms.KeyManagementClient
-	keyVersion *kmspb.CryptoKeyVersion
+	client *cloudkms.KeyManagementClient
 }
 
 func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*GoogleKMS, error) {
@@ -24,22 +24,25 @@ func NewGoogleKMS(ctx context.Context, clientID string, resourceID string) (*Goo
 		return nil, fmt.Errorf("could not construct KMS client: %w", err)
 	}
 
-	keyVersion, err := client.GetCryptoKeyVersion(ctx, &kmspb.GetCryptoKeyVersionRequest{
+	// Use GetPublicKey instead of GetCryptoKeyVersion so that the service account
+	// only needs roles/cloudkms.signerVerifier (which includes viewPublicKey)
+	// rather than the broader roles/cloudkms.viewer (which includes cryptoKeyVersions.get).
+	publicKey, err := client.GetPublicKey(ctx, &kmspb.GetPublicKeyRequest{
 		Name: resourceID,
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch KMS key metadata: %w", err)
+		return nil, fmt.Errorf("could not fetch KMS public key: %w", err)
 	}
 
-	if keyVersion.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_2048_SHA256 &&
-		keyVersion.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_3072_SHA256 &&
-		keyVersion.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_4096_SHA256 {
+	if publicKey.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_2048_SHA256 &&
+		publicKey.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_3072_SHA256 &&
+		publicKey.Algorithm != kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_4096_SHA256 {
 
 		return nil, fmt.Errorf("KMS key must be of type RSA_SIGN_PKCS1_*_SHA256")
 	}
 
-	return &GoogleKMS{clientID, client, keyVersion}, nil
+	return &GoogleKMS{clientID, resourceID, client}, nil
 }
 
 func (s *GoogleKMS) ClientID() string {
@@ -51,7 +54,7 @@ func (s *GoogleKMS) SignRS256(
 	digest [32]byte,
 ) ([]byte, error) {
 	signRequest := &kmspb.AsymmetricSignRequest{
-		Name:   s.keyVersion.Name,
+		Name:   s.resourceID,
 		Digest: &kmspb.Digest{Digest: &kmspb.Digest_Sha256{Sha256: digest[:]}},
 	}
 
