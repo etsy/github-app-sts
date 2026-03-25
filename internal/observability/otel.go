@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
+	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -19,9 +17,9 @@ import (
 // ShutdownFunc flushes and shuts down OTel providers.
 type ShutdownFunc func(ctx context.Context) error
 
-// Setup initializes OpenTelemetry tracing and metrics using OTLP HTTP exporters.
-// Configuration is driven entirely by standard OTel environment variables
-// (OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_RESOURCE_ATTRIBUTES, etc.).
+// Setup initializes OpenTelemetry tracing and metrics.
+// The exporter protocol (gRPC or HTTP) is selected automatically based on
+// the OTEL_EXPORTER_OTLP_PROTOCOL environment variable via the autoexport package.
 //
 // If OTEL_EXPORTER_OTLP_ENDPOINT is not set, Setup is a no-op and returns a
 // nil ShutdownFunc.
@@ -41,7 +39,7 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("creating OTel resource: %w", err)
 	}
 
-	traceExp, err := otlptracehttp.New(ctx)
+	traceExp, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("creating trace exporter: %w", err)
 	}
@@ -56,13 +54,13 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		propagation.Baggage{},
 	))
 
-	metricExp, err := otlpmetrichttp.New(ctx)
+	metricReader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("creating metric exporter: %w", err)
+		return nil, fmt.Errorf("creating metric reader: %w", err)
 	}
 
 	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp, sdkmetric.WithInterval(30*time.Second))),
+		sdkmetric.WithReader(metricReader),
 		sdkmetric.WithResource(res),
 	)
 	otel.SetMeterProvider(mp)
