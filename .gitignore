@@ -1,6 +1,5 @@
 # GitHub Actions
 action/node_modules/
-action/dist/
 
 # GCP Workload Identity Federation credentials (created by google-github-actions/auth)
 gha-creds-*.json
