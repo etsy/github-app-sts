@@ -39,6 +39,14 @@ jobs:
       - name: Build GitHub Action
         run: cd action && npm run build
 
+      - name: Check action dist is up to date
+        run: |
+          if ! git diff --quiet action/dist/; then
+            echo "::error::action/dist/ is out of date. Run 'cd action && npm run build' and commit."
+            git diff --stat action/dist/
+            exit 1
+          fi
+
       - name: Start STS server for GitHub Action integration test
         run: go run ./cmd/github-app-sts-server/ --config .github/this-config-is-used-in-ci.yaml &
         env:
