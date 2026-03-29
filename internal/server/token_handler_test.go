@@ -49,12 +49,13 @@ func TestTokenHandler(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&strings.Builder{}, nil))
 
 	tests := []struct {
-		name           string
-		method         string
-		form           url.Values
-		exchanger      *fakeExchanger
-		wantStatus     int
-		wantOAuthError string
+		name                 string
+		method               string
+		form                 url.Values
+		exchanger            *fakeExchanger
+		wantStatus           int
+		wantOAuthError       string
+		wantErrorDescription string
 	}{
 		{
 			name:       "successful exchange",
@@ -162,12 +163,14 @@ func TestTokenHandler(t *testing.T) {
 			exchanger: &fakeExchanger{
 				err: &sts.Error{
 					Kind:    sts.ErrKindInvalidToken,
+					Message: "invalid subject token",
 					Details: &sts.ExchangeDetails{},
 					Err:     fmt.Errorf("bad token"),
 				},
 			},
-			wantStatus:     http.StatusBadRequest,
-			wantOAuthError: "invalid_grant",
+			wantStatus:           http.StatusBadRequest,
+			wantOAuthError:       "invalid_grant",
+			wantErrorDescription: "invalid subject token",
 		},
 		{
 			name:   "service returns invalid resource error",
@@ -176,12 +179,14 @@ func TestTokenHandler(t *testing.T) {
 			exchanger: &fakeExchanger{
 				err: &sts.Error{
 					Kind:    sts.ErrKindInvalidResource,
+					Message: "invalid resource",
 					Details: &sts.ExchangeDetails{},
 					Err:     fmt.Errorf("bad resource"),
 				},
 			},
-			wantStatus:     http.StatusBadRequest,
-			wantOAuthError: "invalid_target",
+			wantStatus:           http.StatusBadRequest,
+			wantOAuthError:       "invalid_target",
+			wantErrorDescription: "invalid resource",
 		},
 		{
 			name:   "service returns invalid scope error",
@@ -190,12 +195,14 @@ func TestTokenHandler(t *testing.T) {
 			exchanger: &fakeExchanger{
 				err: &sts.Error{
 					Kind:    sts.ErrKindInvalidScope,
+					Message: "invalid scope",
 					Details: &sts.ExchangeDetails{},
 					Err:     fmt.Errorf("bad scope"),
 				},
 			},
-			wantStatus:     http.StatusBadRequest,
-			wantOAuthError: "invalid_scope",
+			wantStatus:           http.StatusBadRequest,
+			wantOAuthError:       "invalid_scope",
+			wantErrorDescription: "invalid scope",
 		},
 		{
 			name:   "service returns internal error",
@@ -204,12 +211,14 @@ func TestTokenHandler(t *testing.T) {
 			exchanger: &fakeExchanger{
 				err: &sts.Error{
 					Kind:    sts.ErrKindInternal,
+					Message: "internal server error",
 					Details: &sts.ExchangeDetails{},
 					Err:     fmt.Errorf("github api error"),
 				},
 			},
-			wantStatus:     http.StatusInternalServerError,
-			wantOAuthError: "server_error",
+			wantStatus:           http.StatusInternalServerError,
+			wantOAuthError:       "server_error",
+			wantErrorDescription: "internal server error",
 		},
 	}
 
@@ -245,6 +254,12 @@ func TestTokenHandler(t *testing.T) {
 
 				if _, ok := resp["error_description"]; !ok {
 					t.Error("expected error_description in response")
+				}
+
+				if tt.wantErrorDescription != "" {
+					if resp["error_description"] != tt.wantErrorDescription {
+						t.Errorf("error_description = %q, want %q", resp["error_description"], tt.wantErrorDescription)
+					}
 				}
 			} else {
 				if _, ok := resp["access_token"]; !ok {

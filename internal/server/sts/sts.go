@@ -25,6 +25,7 @@ type Result struct {
 
 type Error struct {
 	Kind    ErrorKind
+	Message string
 	Details *ExchangeDetails
 	Err     error
 }
@@ -89,21 +90,21 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 	d.SubjectTokenIssuer, err = s.verifier.ExtractIssuer(subjectToken)
 
 	if err != nil {
-		return nil, &Error{ErrKindInvalidToken, &d, err}
+		return nil, &Error{ErrKindInvalidToken, "invalid subject token", &d, err}
 	}
 
 	if err := parseResource(resource, &d); err != nil {
-		return nil, &Error{ErrKindInvalidResource, &d, err}
+		return nil, &Error{ErrKindInvalidResource, "invalid resource", &d, err}
 	}
 
 	if err := validateScope(scope); err != nil {
-		return nil, &Error{ErrKindInvalidScope, &d, err}
+		return nil, &Error{ErrKindInvalidScope, "invalid scope", &d, err}
 	}
 
 	targetLoader, ok := s.loaders[d.TargetOrganization]
 
 	if !ok {
-		return nil, &Error{ErrKindInvalidResource, &d, fmt.Errorf("unknown organization: %s", d.TargetOrganization)}
+		return nil, &Error{ErrKindInvalidResource, "invalid resource", &d, fmt.Errorf("unknown organization: %s", d.TargetOrganization)}
 	}
 
 	var pol *policy.Policy
@@ -123,7 +124,12 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 			kind = ErrKindInvalidScope
 		}
 
-		return nil, &Error{kind, &d, fmt.Errorf("could not load policy: %w", err)}
+		msg := "invalid scope"
+		if kind == ErrKindInternal {
+			msg = "internal server error"
+		}
+
+		return nil, &Error{kind, msg, &d, fmt.Errorf("could not load policy: %w", err)}
 	}
 
 	d.PolicyAppClientID = pol.AppClientID
@@ -133,7 +139,7 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 	if err := s.verifier.Verify(ctx, d.SubjectTokenIssuer, subjectToken, pol); err != nil {
 		// This is a *tiny* lie. The verification could fail because of a server error, for example in the case of
 		// needing to refresh the OIDC JWK values. This is rare compared to other types of failures, however.
-		return nil, &Error{ErrKindInvalidToken, &d, fmt.Errorf("rejected by verifier: %w", err)}
+		return nil, &Error{ErrKindInvalidToken, "invalid subject token", &d, fmt.Errorf("rejected by verifier: %w", err)}
 	}
 
 	d.AllowedByPolicy = true
@@ -141,19 +147,19 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 	targetInstallations, ok := s.apps[d.TargetOrganization]
 
 	if !ok {
-		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy app does not appear to be installed in the target org")}
+		return nil, &Error{ErrKindInternal, "internal server error", &d, fmt.Errorf("policy app does not appear to be installed in the target org")}
 	}
 
 	tokenSource, ok := targetInstallations[pol.AppClientID]
 
 	if !ok {
-		return nil, &Error{ErrKindInternal, &d, fmt.Errorf("policy references unknown app: %s", pol.AppClientID)}
+		return nil, &Error{ErrKindInternal, fmt.Sprintf("policy references unknown app: %s", pol.AppClientID), &d, fmt.Errorf("policy references unknown app: %s", pol.AppClientID)}
 	}
 
 	token, err := tokenSource.Token(ctx, pol.Repositories, pol.Permissions)
 
 	if err != nil {
-		return nil, &Error{ErrKindInternal, &d, err}
+		return nil, &Error{ErrKindInternal, "internal server error", &d, err}
 	}
 
 	return &Result{token, &d}, nil

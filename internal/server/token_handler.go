@@ -113,17 +113,19 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			switch stsError.Kind {
 			case sts.ErrKindInvalidToken:
-				response = &errorResponse{http.StatusBadRequest, "invalid_grant", "invalid subject token"}
+				response = &errorResponse{http.StatusBadRequest, "invalid_grant", stsError.Message}
 				logLevel = slog.LevelWarn
 
 			case sts.ErrKindInvalidResource:
-				response = &errorResponse{http.StatusBadRequest, "invalid_target", "invalid resource"}
+				response = &errorResponse{http.StatusBadRequest, "invalid_target", stsError.Message}
 				logLevel = slog.LevelInfo
 
 			case sts.ErrKindInvalidScope:
-				response = &errorResponse{http.StatusBadRequest, "invalid_scope", "invalid scope"}
+				response = &errorResponse{http.StatusBadRequest, "invalid_scope", stsError.Message}
 				logLevel = slog.LevelInfo
 
+			case sts.ErrKindInternal:
+				logLevel = slog.LevelError
 			}
 
 			attrs = append(
