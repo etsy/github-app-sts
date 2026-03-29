@@ -30,11 +30,11 @@ const (
 func TestTokenExchangeIntegration(t *testing.T) {
 	testutil.SkipUnlessIntegrationTest(t, "server")
 
-	clientID := testutil.MustGetenv(t, "GITHUB_APP_CLIENT_ID")
-	installationID := testutil.MustGetenv(t, "GITHUB_APP_INSTALLATION_ID")
-	owner := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_OWNER")
-	repo := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_REPO")
-	scope := testutil.GetenvOrDefault("GITHUB_INTEGRATION_TEST_SCOPE", "this-policy-is-used-in-a-local-integration-test")
+	clientID := testutil.MustGetenv(t, "TEST_APP_CLIENT_ID")
+	installationID := testutil.MustGetenv(t, "TEST_APP_INSTALLATION_ID")
+	owner := testutil.MustGetenv(t, "TEST_APP_OWNER")
+	repo := testutil.MustGetenv(t, "TEST_APP_REPO")
+	scope := testutil.GetenvOrDefault("TEST_APP_SCOPE", "this-policy-is-used-in-a-local-integration-test")
 
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -75,7 +75,7 @@ func TestTokenExchangeIntegration(t *testing.T) {
 		AllowedIssuers: []string{oidcTestIssuer},
 		PolicyReaderApp: &config.AppConfig{
 			ClientID:   &clientID,
-			PrivateKey: config.PrivateKeyConfig{EnvVar: "GITHUB_APP_PRIVATE_KEY"},
+			PrivateKey: config.PrivateKeyConfig{EnvVar: "TEST_APP_PRIVATE_KEY"},
 			Installations: map[string]int64{
 				owner: mustParseInt64(t, installationID),
 			},
@@ -83,7 +83,7 @@ func TestTokenExchangeIntegration(t *testing.T) {
 		STSTargetApps: map[string]*config.AppConfig{
 			"sts-test": {
 				ClientID:   &clientID,
-				PrivateKey: config.PrivateKeyConfig{EnvVar: "GITHUB_APP_PRIVATE_KEY"},
+				PrivateKey: config.PrivateKeyConfig{EnvVar: "TEST_APP_PRIVATE_KEY"},
 				Installations: map[string]int64{
 					owner: mustParseInt64(t, installationID),
 				},

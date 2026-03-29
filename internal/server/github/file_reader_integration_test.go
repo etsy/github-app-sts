@@ -33,8 +33,8 @@ func TestFileReaderIntegration(t *testing.T) {
 	testutil.SkipUnlessIntegrationTest(t, "file_reader")
 
 	token := testutil.MustGetenv(t, "GITHUB_TOKEN")
-	owner := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_OWNER")
-	repo := testutil.MustGetenv(t, "GITHUB_INTEGRATION_TEST_REPO")
+	owner := testutil.MustGetenv(t, "TEST_APP_OWNER")
+	repo := testutil.MustGetenv(t, "TEST_APP_REPO")
 
 	reader := github.NewFileReader(
 		&staticTokenSource{owner: owner, token: token},

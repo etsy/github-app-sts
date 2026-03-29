@@ -27,11 +27,11 @@ jobs:
         env:
           INTEGRATION_TEST: all
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_CLIENT_ID: Iv23liUtvQx3kl2stqLg
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
-          GITHUB_APP_INSTALLATION_ID: "118441687"
-          GITHUB_INTEGRATION_TEST_OWNER: ${{ github.repository_owner }}
-          GITHUB_INTEGRATION_TEST_REPO: github-app-sts
+          TEST_APP_CLIENT_ID: ${{ vars.TEST_APP_CLIENT_ID }}
+          TEST_APP_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
+          TEST_APP_INSTALLATION_ID: ${{ vars.TEST_APP_INSTALLATION_ID }}
+          TEST_APP_OWNER: ${{ github.repository_owner }}
+          TEST_APP_REPO: ${{ github.event.repository.name }}
 
       - name: Run GitHub Action unit tests
         run: cd action && npm ci && npm test
@@ -39,10 +39,32 @@ jobs:
       - name: Build GitHub Action
         run: cd action && npm run build
 
+      - name: Generate STS config
+        run: |
+          cat > /tmp/sts-config.yaml <<EOF
+          audience: "http://localhost:8080"
+          port: 8080
+          allowed_issuers:
+            - "https://token.actions.githubusercontent.com"
+          policy_reader_app:
+            client_id: "${{ vars.TEST_APP_CLIENT_ID }}"
+            private_key:
+              env_var: TEST_APP_PRIVATE_KEY
+            installations:
+              ${{ github.repository_owner }}: ${{ vars.TEST_APP_INSTALLATION_ID }}
+          sts_target_apps:
+            sts-test:
+              client_id: "${{ vars.TEST_APP_CLIENT_ID }}"
+              private_key:
+                env_var: TEST_APP_PRIVATE_KEY
+              installations:
+                ${{ github.repository_owner }}: ${{ vars.TEST_APP_INSTALLATION_ID }}
+          EOF
+
       - name: Start STS server for GitHub Action integration test
-        run: go run ./cmd/github-app-sts-server/ --config .github/this-config-is-used-in-ci.yaml &
+        run: go run ./cmd/github-app-sts-server/ --config /tmp/sts-config.yaml &
         env:
-          STS_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
+          TEST_APP_PRIVATE_KEY: ${{ secrets.TEST_APP_PRIVATE_KEY }}
 
       - name: Wait for STS server
         run: timeout 30 bash -c 'until curl -sf http://localhost:8080/ready; do sleep 1; done'
