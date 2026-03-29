@@ -25,10 +25,11 @@ policy_reader_app:
     myorg: 22222
 
 # Target GitHub Apps that policies can mint tokens for.
-# Each policy specifies an app_id that must match one of these.
+# Each policy specifies a target_app alias that must match one of these keys.
 sts_target_apps:
   # Example: Deploy bot with key stored in GCP Cloud KMS
-  - client_id: "abcd1234"
+  deploy-bot:
+    client_id: "abcd1234"
 
     private_key:
       google_kms: "projects/my-project/locations/us-central1/keyRings/github/cryptoKeys/deploy-bot/cryptoKeyVersions/1"

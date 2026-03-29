@@ -20,8 +20,8 @@ func validConfig() *Config {
 				"myorg": 12345,
 			},
 		},
-		STSTargetApps: []*AppConfig{
-			{
+		STSTargetApps: map[string]*AppConfig{
+			"deploy-bot": {
 				ClientID:   ptr("2"),
 				PrivateKey: PrivateKeyConfig{File: "/path/to/key2.pem"},
 				Installations: map[string]int64{
@@ -56,8 +56,8 @@ func TestValidate(t *testing.T) {
 		{"multiple private key sources", func(c *Config) {
 			c.PolicyReaderApp.PrivateKey = PrivateKeyConfig{File: "a", EnvVar: "B"}
 		}},
-		{"empty sts_target_apps", func(c *Config) { c.STSTargetApps = []*AppConfig{} }},
-		{"missing sts_target_app id", func(c *Config) { c.STSTargetApps[0].ClientID = nil }},
+		{"empty sts_target_apps", func(c *Config) { c.STSTargetApps = map[string]*AppConfig{} }},
+		{"missing sts_target_app id", func(c *Config) { c.STSTargetApps["deploy-bot"].ClientID = nil }},
 		{"empty org_policy_repo value", func(c *Config) { c.OrgPolicyRepos = map[string]string{"org": ""} }},
 	}
 
@@ -109,7 +109,8 @@ policy_reader_app:
   installations:
     myorg: 12345
 sts_target_apps:
-  - client_id: 2
+  deploy-bot:
+    client_id: 2
     private_key:
       file: "/path/to/key2.pem"
     installations:

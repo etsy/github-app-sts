@@ -25,9 +25,9 @@ type Config struct {
 	// `contents: "read"` permissions on any repository that is expected to contain a policy.
 	PolicyReaderApp *AppConfig `yaml:"policy_reader_app"`
 
-	// STSTargetApps are the GitHub Apps that policies can mint tokens for. Each policy specifies an app_id that must
-	// match one of these.
-	STSTargetApps []*AppConfig `yaml:"sts_target_apps"`
+	// STSTargetApps are the GitHub Apps that policies can mint tokens for. Each policy specifies a target_app alias
+	// that must match one of these keys.
+	STSTargetApps map[string]*AppConfig `yaml:"sts_target_apps"`
 
 	// OrgPolicyRepos maps organization names to their policy repository.
 	OrgPolicyRepos map[string]string `yaml:"org_policy_repos"`
@@ -139,8 +139,8 @@ func (c *Config) validateSTSTargetApps() []error {
 		return append(errs, errors.New("at least one sts_target_app must be configured"))
 	}
 
-	for i, app := range c.STSTargetApps {
-		errs = append(errs, app.validate(fmt.Sprintf("'sts_target_apps[%d]'", i))...)
+	for alias, app := range c.STSTargetApps {
+		errs = append(errs, app.validate(fmt.Sprintf("sts_target_apps[%s]", alias))...)
 	}
 
 	return errs

@@ -12,7 +12,8 @@ policy_reader_app:
     etsy: 118441687
 
 sts_target_apps:
-  - client_id: "Iv23liUtvQx3kl2stqLg"
+  sts-test:
+    client_id: "Iv23liUtvQx3kl2stqLg"
     private_key:
       env_var: STS_PRIVATE_KEY
     installations:

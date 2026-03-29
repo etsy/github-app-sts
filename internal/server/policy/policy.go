@@ -41,7 +41,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 	}
 
 	var rp struct {
-		AppClientID string            `yaml:"app_client_id"`
+		TargetApp   string            `yaml:"target_app"`
 		Issuer      string            `yaml:"issuer"`
 		Subject     string            `yaml:"subject"`
 		Claims      string            `yaml:"claims,omitempty"`
@@ -59,7 +59,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 	}
 
 	return NewPolicy(
-		rp.AppClientID,
+		rp.TargetApp,
 		rp.Issuer,
 		rp.Subject,
 		rp.Claims,
@@ -84,7 +84,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 	}
 
 	var op struct {
-		AppClientID  string            `yaml:"app_client_id"`
+		TargetApp    string            `yaml:"target_app"`
 		Issuer       string            `yaml:"issuer"`
 		Subject      string            `yaml:"subject"`
 		Claims       string            `yaml:"claims,omitempty"`
@@ -97,7 +97,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 	}
 
 	return NewPolicy(
-		op.AppClientID,
+		op.TargetApp,
 		op.Issuer,
 		op.Subject,
 		op.Claims,
@@ -114,10 +114,10 @@ func (e *NotFoundError) Error() string { return "policy not found" }
 func (e *NotFoundError) Unwrap() error { return e.Err }
 
 type Policy struct {
-	AppClientID string
-	Issuer      string
-	Subject     *regexp.Regexp
-	Claims      cel.Program
+	TargetApp string
+	Issuer    string
+	Subject   *regexp.Regexp
+	Claims    cel.Program
 
 	Permissions  map[string]string
 	Repositories []string
@@ -141,7 +141,7 @@ func (p *Policy) EvaluateClaims(claims map[string]any) (bool, error) {
 }
 
 func NewPolicy(
-	appClientID string,
+	targetApp string,
 	issuer string,
 	subject string,
 	claims string,
@@ -155,7 +155,7 @@ func NewPolicy(
 	}
 
 	p := &Policy{
-		AppClientID:  appClientID,
+		TargetApp:    targetApp,
 		Issuer:       issuer,
 		Subject:      subjectRegex,
 		Permissions:  permissions,

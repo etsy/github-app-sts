@@ -171,7 +171,7 @@ func (h *tokenHandler) logExchange(ctx context.Context, level slog.Level, d *sts
 			slog.String("issuer", d.SubjectTokenIssuer),
 			slog.String("target_org", d.TargetOrganization),
 			slog.String("target_repo", d.TargetRepository),
-			slog.String("policy_app_client_id", d.PolicyAppClientID),
+			slog.String("policy_target_app", d.PolicyTargetApp),
 			slog.Bool("allowed_by_policy", d.AllowedByPolicy),
 		),
 	}

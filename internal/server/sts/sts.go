@@ -15,7 +15,7 @@ import (
 	"github.com/etsy/github-app-sts/internal/server/policy"
 )
 
-// AppRegistry is a map of org (owner) -> client ID -> InstallationTokenSource.
+// AppRegistry is a map of org (owner) -> target app alias -> InstallationTokenSource.
 type AppRegistry map[string]map[string]github.InstallationTokenSource
 
 type Result struct {
@@ -52,7 +52,7 @@ type ExchangeDetails struct {
 	TargetOrganization string
 	TargetRepository   string
 
-	PolicyAppClientID  string
+	PolicyTargetApp    string
 	PolicyPermissions  github.Permissions
 	PolicyRepositories []string
 
@@ -132,7 +132,7 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 		return nil, &Error{kind, msg, &d, fmt.Errorf("could not load policy: %w", err)}
 	}
 
-	d.PolicyAppClientID = pol.AppClientID
+	d.PolicyTargetApp = pol.TargetApp
 	d.PolicyRepositories = pol.Repositories
 	d.PolicyPermissions = pol.Permissions
 
@@ -150,10 +150,10 @@ func (s *Service) ExchangeToken(ctx context.Context, subjectToken, resource, sco
 		return nil, &Error{ErrKindInternal, "internal server error", &d, fmt.Errorf("policy app does not appear to be installed in the target org")}
 	}
 
-	tokenSource, ok := targetInstallations[pol.AppClientID]
+	tokenSource, ok := targetInstallations[pol.TargetApp]
 
 	if !ok {
-		return nil, &Error{ErrKindInternal, fmt.Sprintf("policy references unknown app: %s", pol.AppClientID), &d, fmt.Errorf("policy references unknown app: %s", pol.AppClientID)}
+		return nil, &Error{ErrKindInternal, fmt.Sprintf("policy references unknown app: %s", pol.TargetApp), &d, fmt.Errorf("policy references unknown app: %s", pol.TargetApp)}
 	}
 
 	token, err := tokenSource.Token(ctx, pol.Repositories, pol.Permissions)

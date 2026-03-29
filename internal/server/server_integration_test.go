@@ -80,8 +80,8 @@ func TestTokenExchangeIntegration(t *testing.T) {
 				owner: mustParseInt64(t, installationID),
 			},
 		},
-		STSTargetApps: []*config.AppConfig{
-			{
+		STSTargetApps: map[string]*config.AppConfig{
+			"sts-test": {
 				ClientID:   &clientID,
 				PrivateKey: config.PrivateKeyConfig{EnvVar: "GITHUB_APP_PRIVATE_KEY"},
 				Installations: map[string]int64{

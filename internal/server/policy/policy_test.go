@@ -30,7 +30,7 @@ func TestLoadRepositoryPolicy(t *testing.T) {
 		{
 			name: "valid policy",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -41,7 +41,7 @@ permissions:
 		{
 			name: "valid policy with CEL claims",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: claims.ref == "refs/heads/main"
@@ -52,7 +52,7 @@ permissions:
 		{
 			name: "rejects organization_ prefixed permission",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -63,7 +63,7 @@ permissions:
 		{
 			name: "rejects members permission",
 			yaml: `
-app_id: 12345
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -74,7 +74,7 @@ permissions:
 		{
 			name: "rejects administration permission",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
@@ -85,7 +85,7 @@ permissions:
 		{
 			name: "invalid subject regex",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: "repo:myorg/myrepo:ref:refs/heads/[invalid"
 permissions:
@@ -96,7 +96,7 @@ permissions:
 		{
 			name: "invalid CEL expression",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: not a valid expression !!!
@@ -108,7 +108,7 @@ permissions:
 		{
 			name: "CEL expression must return bool",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
 claims: claims.ref
@@ -142,8 +142,8 @@ permissions:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if policy.AppClientID != "12345" {
-				t.Errorf("AppID = %s, want '12345'", policy.AppClientID)
+			if policy.TargetApp != "deploy-bot" {
+				t.Errorf("TargetApp = %s, want 'deploy-bot'", policy.TargetApp)
 			}
 
 			if policy.Issuer != "https://token.actions.githubusercontent.com" {
@@ -166,7 +166,7 @@ func TestLoadOrganizationPolicy(t *testing.T) {
 		{
 			name: "valid org policy with org permissions",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
@@ -181,7 +181,7 @@ repositories:
 		{
 			name: "valid org policy without repositories",
 			yaml: `
-app_client_id: "12345"
+target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
@@ -213,8 +213,8 @@ permissions:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if policy.AppClientID != "12345" {
-				t.Errorf("AppID = %s, want '12345'", policy.AppClientID)
+			if policy.TargetApp != "deploy-bot" {
+				t.Errorf("TargetApp = %s, want 'deploy-bot'", policy.TargetApp)
 			}
 		})
 	}

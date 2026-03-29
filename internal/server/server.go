@@ -101,14 +101,14 @@ func initPolicyLoaders(ctx context.Context, logger *slog.Logger, appCfg *config.
 	return loaders, nil
 }
 
-func initAppRegistry(ctx context.Context, appCfgs []*config.AppConfig, httpClient *http.Client) (sts.AppRegistry, error) {
+func initAppRegistry(ctx context.Context, appCfgs map[string]*config.AppConfig, httpClient *http.Client) (sts.AppRegistry, error) {
 	apps := sts.AppRegistry{}
 
-	for _, targetAppCfg := range appCfgs {
+	for alias, targetAppCfg := range appCfgs {
 		targetApp, err := initAppTokenSource(ctx, targetAppCfg)
 
 		if err != nil {
-			return nil, fmt.Errorf("could not initialize sts target app: %w", err)
+			return nil, fmt.Errorf("could not initialize sts target app %q: %w", alias, err)
 		}
 
 		for org, installationID := range targetAppCfg.Installations {
@@ -119,7 +119,7 @@ func initAppRegistry(ctx context.Context, appCfgs []*config.AppConfig, httpClien
 				apps[org] = installations
 			}
 
-			installations[*targetAppCfg.ClientID] = github.NewInstallationTokenSource(
+			installations[alias] = github.NewInstallationTokenSource(
 				targetApp, org, strconv.FormatInt(installationID, 10), httpClient,
 			)
 		}
