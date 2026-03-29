@@ -1,0 +1,14 @@
+# This policy is used by an app configured as "sts-test" in:
+#   - CI integration tests (.github/workflows/ci.yaml)
+#   - Local integration tests (internal/server/server_integration_test.go)
+target_app: sts-test
+
+identities:
+  - issuer: "https://token.actions.githubusercontent.com"
+    subject: ".*"
+    condition: claims.sub.matches("^repo:" + repository + ":.*$")
+  - issuer: "http://localhost:19876"
+    subject: "test-subject"
+
+permissions:
+  contents: read

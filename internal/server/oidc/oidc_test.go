@@ -124,8 +124,8 @@ func TestVerify(t *testing.T) {
 		return oidctest.SignIDToken(priv, "test-key", "RS256", string(raw))
 	}
 
-	makePolicy := func(issuer, subject, claims string) *policy.Policy {
-		p, err := policy.NewPolicy("1", issuer, subject, claims, map[string]string{"contents": "read"}, []string{"myrepo"}, "myorg", "myorg/myrepo")
+	makePolicy := func(identities ...policy.IdentityConfig) *policy.Policy {
+		p, err := policy.NewPolicy("1", identities, map[string]string{"contents": "read"}, []string{"myrepo"}, "myorg", "myorg/myrepo")
 		if err != nil {
 			t.Fatalf("creating policy: %v", err)
 		}
@@ -141,53 +141,61 @@ func TestVerify(t *testing.T) {
 		{
 			name:   "valid token matching policy",
 			token:  makeToken(nil),
-			policy: makePolicy(srv.URL, "repo:myorg/myrepo:ref:refs/heads/main", ""),
+			policy: makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:ref:refs/heads/main"}),
 		},
 		{
 			name:   "valid token matching policy with regex subject",
 			token:  makeToken(nil),
-			policy: makePolicy(srv.URL, "repo:myorg/myrepo:.*", ""),
+			policy: makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*"}),
 		},
 		{
 			name:   "valid token matching policy with CEL claims",
 			token:  makeToken(map[string]any{"ref": "refs/heads/main"}),
-			policy: makePolicy(srv.URL, "repo:myorg/myrepo:.*", `claims.ref == "refs/heads/main"`),
+			policy: makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*", Condition: `claims.ref == "refs/heads/main"`}),
+		},
+		{
+			name:  "matches second identity",
+			token: makeToken(nil),
+			policy: makePolicy(
+				policy.IdentityConfig{Issuer: srv.URL, Subject: "no-match"},
+				policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*"},
+			),
 		},
 		{
 			name:    "issuer mismatch",
 			token:   makeToken(nil),
-			policy:  makePolicy("https://other-issuer.example.com", "repo:myorg/myrepo:.*", ""),
+			policy:  makePolicy(policy.IdentityConfig{Issuer: "https://other-issuer.example.com", Subject: "repo:myorg/myrepo:.*"}),
 			wantErr: true,
 		},
 		{
 			name:    "subject mismatch",
 			token:   makeToken(nil),
-			policy:  makePolicy(srv.URL, "repo:other-org/other-repo:.*", ""),
+			policy:  makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:other-org/other-repo:.*"}),
 			wantErr: true,
 		},
 		{
 			name:    "CEL claims evaluate to false",
 			token:   makeToken(map[string]any{"ref": "refs/heads/develop"}),
-			policy:  makePolicy(srv.URL, "repo:myorg/myrepo:.*", `claims.ref == "refs/heads/main"`),
+			policy:  makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*", Condition: `claims.ref == "refs/heads/main"`}),
 			wantErr: true,
 		},
 		{
 			name:    "expired token",
 			token:   makeToken(map[string]any{"exp": time.Now().Add(-time.Hour).Unix()}),
-			policy:  makePolicy(srv.URL, "repo:myorg/myrepo:.*", ""),
+			policy:  makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*"}),
 			wantErr: true,
 		},
 		{
 			name:    "unknown issuer",
 			token:   makeToken(nil),
-			policy:  makePolicy(srv.URL, "repo:myorg/myrepo:.*", ""),
+			policy:  makePolicy(policy.IdentityConfig{Issuer: srv.URL, Subject: "repo:myorg/myrepo:.*"}),
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			issuer := tt.policy.Issuer
+			issuer := tt.policy.Identities[0].Issuer
 			if tt.name == "unknown issuer" {
 				issuer = "https://unknown.example.com"
 			}

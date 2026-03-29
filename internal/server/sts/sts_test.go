@@ -199,9 +199,10 @@ func (f *fakeTokenSource) Token(_ context.Context, repos []string, perms github.
 func testPolicy(targetApp string) *policy.Policy {
 	p, _ := policy.NewPolicy(
 		targetApp,
-		"https://token.actions.githubusercontent.com",
-		"repo:myorg/myrepo:.*",
-		"",
+		[]policy.IdentityConfig{{
+			Issuer:  "https://token.actions.githubusercontent.com",
+			Subject: "repo:myorg/myrepo:.*",
+		}},
 		map[string]string{"contents": "read"},
 		[]string{"myrepo"},
 		"myorg",

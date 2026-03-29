@@ -74,7 +74,7 @@ jobs:
         id: sts
         with:
           sts-url: http://localhost:8080
-          policy: this-policy-is-used-in-a-ci-integration-test
+          policy: this-policy-is-used-in-integration-tests
           target: https://github.com/${{ github.repository }}
 
       - name: Verify exchanged token works

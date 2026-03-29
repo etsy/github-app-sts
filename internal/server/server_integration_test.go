@@ -25,6 +25,7 @@ import (
 const (
 	oidcTestAddr   = "localhost:19876"
 	oidcTestIssuer = "http://localhost:19876"
+	testPolicyScope = "this-policy-is-used-in-integration-tests"
 )
 
 func TestTokenExchangeIntegration(t *testing.T) {
@@ -34,7 +35,7 @@ func TestTokenExchangeIntegration(t *testing.T) {
 	installationID := testutil.MustGetenv(t, "TEST_APP_INSTALLATION_ID")
 	owner := testutil.MustGetenv(t, "TEST_APP_OWNER")
 	repo := testutil.MustGetenv(t, "TEST_APP_REPO")
-	scope := testutil.GetenvOrDefault("TEST_APP_SCOPE", "this-policy-is-used-in-a-local-integration-test")
+
 
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -120,7 +121,7 @@ func TestTokenExchangeIntegration(t *testing.T) {
 		"subject_token_type": {"urn:ietf:params:oauth:token-type:jwt"},
 		"subject_token":      {token},
 		"resource":           {fmt.Sprintf("https://github.com/%s/%s", owner, repo)},
-		"scope":              {scope},
+		"scope":              {testPolicyScope},
 	})
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)

@@ -1,8 +1,0 @@
-target_app: sts-test
-
-# Hardcoded issuer and subejct from a local OIDC server.
-issuer: "http://localhost:19876"
-subject: "test-subject"
-
-permissions:
-  contents: read

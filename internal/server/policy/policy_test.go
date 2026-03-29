@@ -34,8 +34,9 @@ func TestLoadRepositoryPolicy(t *testing.T) {
 			name: "valid policy",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
   contents: read
   issues: write
@@ -45,9 +46,23 @@ permissions:
 			name: "valid policy with CEL condition",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:.*
-condition: claims.ref == "refs/heads/main"
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:.*
+    condition: claims.ref == "refs/heads/main"
+permissions:
+  contents: read
+`,
+		},
+		{
+			name: "valid policy with multiple identities",
+			yaml: `
+target_app: deploy-bot
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:ref:refs/heads/main
+  - issuer: http://localhost:19876
+    subject: test-subject
 permissions:
   contents: read
 `,
@@ -56,8 +71,9 @@ permissions:
 			name: "rejects organization_ prefixed permission",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
   organization_hooks: read
 `,
@@ -67,8 +83,9 @@ permissions:
 			name: "rejects members permission",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
   members: read
 `,
@@ -78,8 +95,9 @@ permissions:
 			name: "rejects administration permission",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:ref:refs/heads/main
 permissions:
   administration: read
 `,
@@ -89,8 +107,9 @@ permissions:
 			name: "invalid subject regex",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: "repo:myorg/myrepo:ref:refs/heads/[invalid"
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: "repo:myorg/myrepo:ref:refs/heads/[invalid"
 permissions:
   contents: read
 `,
@@ -100,9 +119,10 @@ permissions:
 			name: "invalid CEL expression",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:.*
-condition: not a valid expression !!!
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:.*
+    condition: not a valid expression !!!
 permissions:
   contents: read
 `,
@@ -112,9 +132,10 @@ permissions:
 			name: "CEL expression must return bool",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/myrepo:.*
-condition: claims.ref
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/myrepo:.*
+    condition: claims.ref
 permissions:
   contents: read
 `,
@@ -124,9 +145,10 @@ permissions:
 			name: "condition with repository variable",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: ".*"
-condition: claims.sub.matches("^repo:" + repository + ":.*$")
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: ".*"
+    condition: claims.sub.matches("^repo:" + repository + ":.*$")
 permissions:
   contents: read
 `,
@@ -135,12 +157,23 @@ permissions:
 			name: "condition with owner variable",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: ".*"
-condition: claims.repository_owner == owner
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: ".*"
+    condition: claims.repository_owner == owner
 permissions:
   contents: read
 `,
+		},
+		{
+			name: "rejects empty identities",
+			yaml: `
+target_app: deploy-bot
+identities: []
+permissions:
+  contents: read
+`,
+			wantErr: true,
 		},
 	}
 
@@ -172,8 +205,12 @@ permissions:
 				t.Errorf("TargetApp = %s, want 'deploy-bot'", policy.TargetApp)
 			}
 
-			if policy.Issuer != "https://token.actions.githubusercontent.com" {
-				t.Errorf("Issuer = %q, want %q", policy.Issuer, "https://token.actions.githubusercontent.com")
+			if len(policy.Identities) == 0 {
+				t.Fatal("expected at least one identity")
+			}
+
+			if policy.Identities[0].Issuer != "https://token.actions.githubusercontent.com" {
+				t.Errorf("Identities[0].Issuer = %q, want %q", policy.Identities[0].Issuer, "https://token.actions.githubusercontent.com")
 			}
 
 			if len(policy.Repositories) != 1 || policy.Repositories[0] != "myrepo" {
@@ -193,8 +230,9 @@ func TestLoadOrganizationPolicy(t *testing.T) {
 			name: "valid org policy with org permissions",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/.*:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
   contents: read
   members: read
@@ -208,8 +246,9 @@ repositories:
 			name: "valid org policy without repositories",
 			yaml: `
 target_app: deploy-bot
-issuer: https://token.actions.githubusercontent.com
-subject: repo:myorg/.*:ref:refs/heads/main
+identities:
+  - issuer: https://token.actions.githubusercontent.com
+    subject: repo:myorg/.*:ref:refs/heads/main
 permissions:
   contents: read
 `,

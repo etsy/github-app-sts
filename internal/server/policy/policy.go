@@ -43,10 +43,8 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 	}
 
 	var rp struct {
-		TargetApp   string            `yaml:"target_app"`
-		Issuer      string            `yaml:"issuer"`
-		Subject     string            `yaml:"subject"`
-		Condition   string            `yaml:"condition,omitempty"`
+		TargetApp  string            `yaml:"target_app"`
+		Identities []IdentityConfig    `yaml:"identities"`
 		Permissions map[string]string `yaml:"permissions"`
 	}
 
@@ -62,9 +60,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 
 	return NewPolicy(
 		rp.TargetApp,
-		rp.Issuer,
-		rp.Subject,
-		rp.Condition,
+		rp.Identities,
 		rp.Permissions,
 		[]string{repo},
 		l.reader.Owner(),
@@ -89,9 +85,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 
 	var op struct {
 		TargetApp    string            `yaml:"target_app"`
-		Issuer       string            `yaml:"issuer"`
-		Subject      string            `yaml:"subject"`
-		Condition    string            `yaml:"condition,omitempty"`
+		Identities   []IdentityConfig    `yaml:"identities"`
 		Permissions  map[string]string `yaml:"permissions"`
 		Repositories []string          `yaml:"repositories"`
 	}
@@ -102,9 +96,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 
 	return NewPolicy(
 		op.TargetApp,
-		op.Issuer,
-		op.Subject,
-		op.Condition,
+		op.Identities,
 		op.Permissions,
 		op.Repositories,
 		l.reader.Owner(),
@@ -119,59 +111,32 @@ type NotFoundError struct {
 func (e *NotFoundError) Error() string { return "policy not found" }
 func (e *NotFoundError) Unwrap() error { return e.Err }
 
-type Policy struct {
-	TargetApp string
+type IdentityConfig struct {
+	Issuer    string `yaml:"issuer"`
+	Subject   string `yaml:"subject"`
+	Condition string `yaml:"condition,omitempty"`
+}
+
+type Identity struct {
 	Issuer    string
 	Subject   *regexp.Regexp
 	Condition cel.Program
-
-	Permissions  map[string]string
-	Repositories []string
 }
 
-func (p *Policy) EvaluateCondition(claims map[string]any) (bool, error) {
-	if p.Condition == nil {
-		return true, nil
-	}
-
-	out, _, err := p.Condition.Eval(map[string]any{
-		"claims": claims,
-	})
-
-	if err != nil {
-		return false, fmt.Errorf("could not evaluate 'condition' expression: %w", err)
-	}
-
-	// SAFETY: we've enforced that this must be a bool in the NewPolicy method.
-	return out.Value().(bool), nil
-}
-
-func NewPolicy(
-	targetApp string,
-	issuer string,
-	subject string,
-	condition string,
-	permissions map[string]string,
-	repositories []string,
-	owner string,
-	repository string,
-) (*Policy, error) {
+func newIdentity(issuer, subject, condition, owner, repository string) (*Identity, error) {
 	subjectRegex, err := regexp.Compile("^" + subject + "$")
 
 	if err != nil {
 		return nil, fmt.Errorf("could not compile subject pattern: %w", err)
 	}
 
-	p := &Policy{
-		TargetApp:    targetApp,
-		Issuer:       issuer,
-		Subject:      subjectRegex,
-		Permissions:  permissions,
-		Repositories: repositories,
+	id := &Identity{
+		Issuer:  issuer,
+		Subject: subjectRegex,
 	}
 
 	if condition == "" {
-		return p, nil
+		return id, nil
 	}
 
 	env, err := cel.NewEnv(
@@ -200,9 +165,65 @@ func NewPolicy(
 		return nil, fmt.Errorf("could not create CEL program: %w", err)
 	}
 
-	p.Condition = program
+	id.Condition = program
 
-	return p, nil
+	return id, nil
+}
+
+func (id *Identity) EvaluateCondition(claims map[string]any) (bool, error) {
+	if id.Condition == nil {
+		return true, nil
+	}
+
+	out, _, err := id.Condition.Eval(map[string]any{
+		"claims": claims,
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("could not evaluate 'condition' expression: %w", err)
+	}
+
+	// SAFETY: we've enforced that this must be a bool in NewIdentity.
+	return out.Value().(bool), nil
+}
+
+type Policy struct {
+	TargetApp    string
+	Identities   []Identity
+	Permissions  map[string]string
+	Repositories []string
+}
+
+func NewPolicy(
+	targetApp string,
+	identities []IdentityConfig,
+	permissions map[string]string,
+	repositories []string,
+	owner string,
+	repository string,
+) (*Policy, error) {
+	if len(identities) == 0 {
+		return nil, fmt.Errorf("policy must have at least one identity")
+	}
+
+	ids := make([]Identity, 0, len(identities))
+
+	for i, iy := range identities {
+		id, err := newIdentity(iy.Issuer, iy.Subject, iy.Condition, owner, repository)
+
+		if err != nil {
+			return nil, fmt.Errorf("identity %d: %w", i, err)
+		}
+
+		ids = append(ids, *id)
+	}
+
+	return &Policy{
+		TargetApp:    targetApp,
+		Identities:   ids,
+		Permissions:  permissions,
+		Repositories: repositories,
+	}, nil
 }
 
 // Organization permissions that are not prefixed with "organization_".

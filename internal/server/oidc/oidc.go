@@ -74,7 +74,7 @@ func (v *Verifier) ExtractIssuer(token string) (string, error) {
 	return claims.Issuer, nil
 }
 
-func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, policy *policy.Policy) error {
+func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, pol *policy.Policy) error {
 	ctx, span := tracer.Start(ctx, "oidc.verify")
 	defer span.End()
 
@@ -90,24 +90,39 @@ func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, p
 		return fmt.Errorf("could not verify OIDC token: %w", err)
 	}
 
-	if policy.Issuer != token.Issuer {
-		return fmt.Errorf("could not verify OIDC token: policy does not allow the given issuer '%s'", token.Issuer)
-	}
-
-	if !policy.Subject.Match([]byte(token.Subject)) {
-		return fmt.Errorf("could not verify OIDC token: policy does not allow the given subject '%s'", token.Subject)
-	}
-
 	var claims map[string]any
 
 	if err := token.Claims(&claims); err != nil {
 		return fmt.Errorf("could not verify OIDC token: %w", err)
 	}
 
-	if ok, err := policy.EvaluateCondition(claims); err != nil {
-		return fmt.Errorf("could not verify OIDC token: %w", err)
+	var errs []error
+
+	for i, id := range pol.Identities {
+		if err := verifyIdentity(token.Issuer, token.Subject, claims, &id); err != nil {
+			errs = append(errs, fmt.Errorf("identity %d: %w", i, err))
+			continue
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("could not verify OIDC token: no identity matched the token: %w", errors.Join(errs...))
+}
+
+func verifyIdentity(issuer, subject string, claims map[string]any, id *policy.Identity) error {
+	if id.Issuer != issuer {
+		return fmt.Errorf("policy does not allow the given issuer '%s'", issuer)
+	}
+
+	if !id.Subject.Match([]byte(subject)) {
+		return fmt.Errorf("policy does not allow the given subject '%s'", subject)
+	}
+
+	if ok, err := id.EvaluateCondition(claims); err != nil {
+		return err
 	} else if !ok {
-		return errors.New("could not verify OIDC token: token is not allowed by the 'condition' expression in the policy")
+		return errors.New("token is not allowed by the 'condition' expression in the policy")
 	}
 
 	return nil
