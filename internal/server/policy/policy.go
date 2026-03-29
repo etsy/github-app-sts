@@ -9,10 +9,12 @@ import (
 
 	"github.com/etsy/github-app-sts/internal/server/github"
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"gopkg.in/yaml.v3"
 )
 
 type FileReader interface {
+	Owner() string
 	ReadFile(ctx context.Context, repo, path string) ([]byte, error)
 }
 
@@ -65,6 +67,8 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 		rp.Condition,
 		rp.Permissions,
 		[]string{repo},
+		l.reader.Owner(),
+		l.reader.Owner()+"/"+repo,
 	)
 }
 
@@ -103,6 +107,8 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 		op.Condition,
 		op.Permissions,
 		op.Repositories,
+		l.reader.Owner(),
+		l.reader.Owner()+"/"+l.orgPolicyRepo,
 	)
 }
 
@@ -147,6 +153,8 @@ func NewPolicy(
 	condition string,
 	permissions map[string]string,
 	repositories []string,
+	owner string,
+	repository string,
 ) (*Policy, error) {
 	subjectRegex, err := regexp.Compile("^" + subject + "$")
 
@@ -168,6 +176,8 @@ func NewPolicy(
 
 	env, err := cel.NewEnv(
 		cel.Variable("claims", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Constant("owner", cel.StringType, types.String(owner)),
+		cel.Constant("repository", cel.StringType, types.String(repository)),
 	)
 
 	if err != nil {

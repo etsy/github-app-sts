@@ -125,7 +125,7 @@ func TestVerify(t *testing.T) {
 	}
 
 	makePolicy := func(issuer, subject, claims string) *policy.Policy {
-		p, err := policy.NewPolicy("1", issuer, subject, claims, map[string]string{"contents": "read"}, []string{"myrepo"})
+		p, err := policy.NewPolicy("1", issuer, subject, claims, map[string]string{"contents": "read"}, []string{"myrepo"}, "myorg", "myorg/myrepo")
 		if err != nil {
 			t.Fatalf("creating policy: %v", err)
 		}

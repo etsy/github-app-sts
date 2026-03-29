@@ -7,8 +7,11 @@ import (
 )
 
 type fakeFileReader struct {
+	owner string
 	files map[string][]byte
 }
+
+func (f *fakeFileReader) Owner() string { return f.owner }
 
 func (f *fakeFileReader) ReadFile(_ context.Context, repo, path string) ([]byte, error) {
 	key := fmt.Sprintf("%s/%s", repo, path)
@@ -117,11 +120,34 @@ permissions:
 `,
 			wantErr: true,
 		},
+		{
+			name: "condition with repository variable",
+			yaml: `
+target_app: deploy-bot
+issuer: https://token.actions.githubusercontent.com
+subject: ".*"
+condition: claims.sub.matches("^repo:" + repository + ":.*$")
+permissions:
+  contents: read
+`,
+		},
+		{
+			name: "condition with owner variable",
+			yaml: `
+target_app: deploy-bot
+issuer: https://token.actions.githubusercontent.com
+subject: ".*"
+condition: claims.repository_owner == owner
+permissions:
+  contents: read
+`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeFileReader{
+				owner: "myorg",
 				files: map[string][]byte{
 					"myrepo/.github/sts/test.yaml": []byte(tt.yaml),
 				},
@@ -193,6 +219,7 @@ permissions:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeFileReader{
+				owner: "myorg",
 				files: map[string][]byte{
 					"org-policies/.github/sts/test.yaml": []byte(tt.yaml),
 				},

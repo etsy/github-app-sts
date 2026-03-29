@@ -204,6 +204,8 @@ func testPolicy(targetApp string) *policy.Policy {
 		"",
 		map[string]string{"contents": "read"},
 		[]string{"myrepo"},
+		"myorg",
+		"myorg/myrepo",
 	)
 	return p
 }
