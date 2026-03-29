@@ -39,12 +39,12 @@ permissions:
 `,
 		},
 		{
-			name: "valid policy with CEL claims",
+			name: "valid policy with CEL condition",
 			yaml: `
 target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
-claims: claims.ref == "refs/heads/main"
+condition: claims.ref == "refs/heads/main"
 permissions:
   contents: read
 `,
@@ -99,7 +99,7 @@ permissions:
 target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
-claims: not a valid expression !!!
+condition: not a valid expression !!!
 permissions:
   contents: read
 `,
@@ -111,7 +111,7 @@ permissions:
 target_app: deploy-bot
 issuer: https://token.actions.githubusercontent.com
 subject: repo:myorg/myrepo:.*
-claims: claims.ref
+condition: claims.ref
 permissions:
   contents: read
 `,

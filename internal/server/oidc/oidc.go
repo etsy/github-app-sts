@@ -104,10 +104,10 @@ func (v *Verifier) Verify(ctx context.Context, issuer, unverifiedToken string, p
 		return fmt.Errorf("could not verify OIDC token: %w", err)
 	}
 
-	if ok, err := policy.EvaluateClaims(claims); err != nil {
+	if ok, err := policy.EvaluateCondition(claims); err != nil {
 		return fmt.Errorf("could not verify OIDC token: %w", err)
 	} else if !ok {
-		return errors.New("could not verify OIDC token: token is not allowed by the 'claims' expression in the policy")
+		return errors.New("could not verify OIDC token: token is not allowed by the 'condition' expression in the policy")
 	}
 
 	return nil

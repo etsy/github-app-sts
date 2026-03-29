@@ -44,7 +44,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 		TargetApp   string            `yaml:"target_app"`
 		Issuer      string            `yaml:"issuer"`
 		Subject     string            `yaml:"subject"`
-		Claims      string            `yaml:"claims,omitempty"`
+		Condition   string            `yaml:"condition,omitempty"`
 		Permissions map[string]string `yaml:"permissions"`
 	}
 
@@ -62,7 +62,7 @@ func (l *Loader) LoadRepositoryPolicy(ctx context.Context, repo, name string) (*
 		rp.TargetApp,
 		rp.Issuer,
 		rp.Subject,
-		rp.Claims,
+		rp.Condition,
 		rp.Permissions,
 		[]string{repo},
 	)
@@ -87,7 +87,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 		TargetApp    string            `yaml:"target_app"`
 		Issuer       string            `yaml:"issuer"`
 		Subject      string            `yaml:"subject"`
-		Claims       string            `yaml:"claims,omitempty"`
+		Condition    string            `yaml:"condition,omitempty"`
 		Permissions  map[string]string `yaml:"permissions"`
 		Repositories []string          `yaml:"repositories"`
 	}
@@ -100,7 +100,7 @@ func (l *Loader) LoadOrganizationPolicy(ctx context.Context, name string) (*Poli
 		op.TargetApp,
 		op.Issuer,
 		op.Subject,
-		op.Claims,
+		op.Condition,
 		op.Permissions,
 		op.Repositories,
 	)
@@ -117,23 +117,23 @@ type Policy struct {
 	TargetApp string
 	Issuer    string
 	Subject   *regexp.Regexp
-	Claims    cel.Program
+	Condition cel.Program
 
 	Permissions  map[string]string
 	Repositories []string
 }
 
-func (p *Policy) EvaluateClaims(claims map[string]any) (bool, error) {
-	if p.Claims == nil {
+func (p *Policy) EvaluateCondition(claims map[string]any) (bool, error) {
+	if p.Condition == nil {
 		return true, nil
 	}
 
-	out, _, err := p.Claims.Eval(map[string]any{
+	out, _, err := p.Condition.Eval(map[string]any{
 		"claims": claims,
 	})
 
 	if err != nil {
-		return false, fmt.Errorf("could not evaluate 'claims' expression: %w", err)
+		return false, fmt.Errorf("could not evaluate 'condition' expression: %w", err)
 	}
 
 	// SAFETY: we've enforced that this must be a bool in the NewPolicy method.
@@ -144,7 +144,7 @@ func NewPolicy(
 	targetApp string,
 	issuer string,
 	subject string,
-	claims string,
+	condition string,
 	permissions map[string]string,
 	repositories []string,
 ) (*Policy, error) {
@@ -162,7 +162,7 @@ func NewPolicy(
 		Repositories: repositories,
 	}
 
-	if claims == "" {
+	if condition == "" {
 		return p, nil
 	}
 
@@ -174,7 +174,7 @@ func NewPolicy(
 		return nil, fmt.Errorf("could not create CEL environment: %w", err)
 	}
 
-	ast, iss := env.Compile(claims)
+	ast, iss := env.Compile(condition)
 
 	if iss.Err() != nil {
 		return nil, fmt.Errorf("could not compile CEL expression: %w", iss.Err())
@@ -190,7 +190,7 @@ func NewPolicy(
 		return nil, fmt.Errorf("could not create CEL program: %w", err)
 	}
 
-	p.Claims = program
+	p.Condition = program
 
 	return p, nil
 }
