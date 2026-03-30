@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.0.0](https://github.com/etsy/github-app-sts/compare/v1.3.0...v2.0.0) (2026-03-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* support multiple identities per policy
+* policy files must use `condition` instead of `claims`.
+* policy files must use `target_app` instead of `app_client_id`, and the server config's `sts_target_apps` is now a map.
+
+### Features
+
+* add owner and repository context variables to condition ([c803b25](https://github.com/etsy/github-app-sts/commit/c803b25ef8155479308523e1a4ae5b702153b3d5))
+* add user-facing error messages to token exchange ([441a7f3](https://github.com/etsy/github-app-sts/commit/441a7f3c37a67c820c91e89b8495db682ba1ca18))
+* make CI portable for forks ([cdc5ef3](https://github.com/etsy/github-app-sts/commit/cdc5ef3d6d92abed798523cd322e9f4e2a9b2239))
+* rename claims to condition ([3f9b996](https://github.com/etsy/github-app-sts/commit/3f9b996b107e2baa870e4ac0fceae559791caf1b))
+* replace app_client_id with named target_app aliases ([92b7831](https://github.com/etsy/github-app-sts/commit/92b78315013392a3a3c15e9f2c6390996d5a9624))
+* support multiple identities per policy ([d24bdb6](https://github.com/etsy/github-app-sts/commit/d24bdb60206fd117266a9618e5494641229646a9))
+
 ## [1.3.0](https://github.com/etsy/github-app-sts/compare/v1.2.1...v1.3.0) (2026-03-25)
 
 
