@@ -116,7 +116,7 @@ condition: claims.ref == "refs/heads/main"
 condition: claims.sub.matches("^repo:" + repository + ":.*$")
 
 # Restrict to a specific workflow
-condition: claims.workflow == "deploy.yml" && claims.ref == "refs/heads/main"
+condition: claims.workflow_ref == "my-org/my-repo/.github/workflows/deploy.yml@refs/heads/main"
 ```
 
 ### `permissions` (required)
