@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/etsy/github-app-sts/internal/protocol"
 	"github.com/etsy/github-app-sts/internal/server/sts"
 )
 
@@ -21,13 +22,6 @@ var meter = otel.Meter("github-app-sts/token-handler")
 var exchangeCounter, _ = meter.Int64Counter(
 	"sts.token_exchange.total",
 	metric.WithDescription("Total token exchange attempts"),
-)
-
-const (
-	expectedGrantType        = "urn:ietf:params:oauth:grant-type:token-exchange"
-	expectedSubjectTokenType = "urn:ietf:params:oauth:token-type:jwt"
-
-	issuedTokenType = "urn:ietf:params:oauth:token-type:access_token"
 )
 
 type service interface {
@@ -43,64 +37,64 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if r.Method != http.MethodPost {
-		h.writeError(w, &errorResponse{http.StatusMethodNotAllowed, "invalid_request", "method not allowed"})
+		h.writeError(w, newErrorResponse(http.StatusMethodNotAllowed, "invalid_request", "method not allowed"))
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "could not parse form body"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "could not parse form body"))
 		return
 	}
 
 	grantType := r.FormValue("grant_type")
 
 	if grantType == "" {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "missing grant_type parameter"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "missing grant_type parameter"))
 		return
 	}
 
-	if grantType != expectedGrantType {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "unsupported_grant_type", "grant_type must be " + expectedGrantType})
+	if grantType != protocol.GrantType {
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "unsupported_grant_type", "grant_type must be "+protocol.GrantType))
 		return
 	}
 
 	subjectTokenType := r.FormValue("subject_token_type")
 
 	if subjectTokenType == "" {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "missing subject_token_type parameter"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "missing subject_token_type parameter"))
 		return
 	}
 
-	if subjectTokenType != expectedSubjectTokenType {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "subject_token_type must be " + expectedSubjectTokenType})
+	if subjectTokenType != protocol.SubjectTokenType {
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "subject_token_type must be "+protocol.SubjectTokenType))
 		return
 	}
 
 	subjectToken := r.FormValue("subject_token")
 
 	if subjectToken == "" {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "missing subject_token parameter"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "missing subject_token parameter"))
 		return
 	}
 
 	resource := r.FormValue("resource")
 
 	if resource == "" {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "missing resource parameter"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "missing resource parameter"))
 		return
 	}
 
 	scope := r.FormValue("scope")
 
 	if scope == "" {
-		h.writeError(w, &errorResponse{http.StatusBadRequest, "invalid_request", "missing scope parameter"})
+		h.writeError(w, newErrorResponse(http.StatusBadRequest, "invalid_request", "missing scope parameter"))
 		return
 	}
 
 	result, err := h.sts.ExchangeToken(ctx, subjectToken, resource, scope)
 
 	if err != nil {
-		response := &errorResponse{http.StatusInternalServerError, "server_error", "internal server error"}
+		response := newErrorResponse(http.StatusInternalServerError, "server_error", "internal server error")
 
 		attrs := []attribute.KeyValue{
 			attribute.String("error.type", fmt.Sprintf("%T", err)),
@@ -113,15 +107,15 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			switch stsError.Kind {
 			case sts.ErrKindInvalidToken:
-				response = &errorResponse{http.StatusBadRequest, "invalid_grant", stsError.Message}
+				response = newErrorResponse(http.StatusBadRequest, "invalid_grant", stsError.Message)
 				logLevel = slog.LevelWarn
 
 			case sts.ErrKindInvalidResource:
-				response = &errorResponse{http.StatusBadRequest, "invalid_target", stsError.Message}
+				response = newErrorResponse(http.StatusBadRequest, "invalid_target", stsError.Message)
 				logLevel = slog.LevelInfo
 
 			case sts.ErrKindInvalidScope:
-				response = &errorResponse{http.StatusBadRequest, "invalid_scope", stsError.Message}
+				response = newErrorResponse(http.StatusBadRequest, "invalid_scope", stsError.Message)
 				logLevel = slog.LevelInfo
 
 			case sts.ErrKindInternal:
@@ -130,7 +124,7 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			attrs = append(
 				attrs,
-				attribute.String("sts.error", response.Error),
+				attribute.String("sts.error", response.ErrorResponseBody.Error),
 				attribute.String("sts.target_org", stsError.Details.TargetOrganization),
 				attribute.String("sts.target_repo", stsError.Details.TargetRepository),
 			)
@@ -153,9 +147,9 @@ func (h *tokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.logExchange(ctx, slog.LevelInfo, result.Details, nil)
 
-	h.writeSuccess(w, &successResponse{
+	h.writeSuccess(w, &protocol.SuccessResponse{
 		AccessToken:     result.Token.AccessToken,
-		IssuedTokenType: issuedTokenType,
+		IssuedTokenType: protocol.IssuedTokenType,
 		TokenType:       "Bearer",
 		ExpiresIn:       int(time.Until(result.Token.ExpiresAt).Seconds()),
 	})
@@ -188,28 +182,22 @@ func (h *tokenHandler) logExchange(ctx context.Context, level slog.Level, d *sts
 	h.logger.LogAttrs(ctx, level, "token exchange succeeded", attrs...)
 }
 
-type errorResponse struct {
-	Status      int
-	Error       string `json:"error"`
-	Description string `json:"error_description"`
+func newErrorResponse(statusCode int, errorCode, description string) *protocol.ErrorResponse {
+	return &protocol.ErrorResponse{
+		StatusCode:        statusCode,
+		ErrorResponseBody: protocol.ErrorResponseBody{Error: errorCode, Description: description},
+	}
 }
 
-func (h *tokenHandler) writeError(w http.ResponseWriter, response *errorResponse) {
+func (h *tokenHandler) writeError(w http.ResponseWriter, response *protocol.ErrorResponse) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.Status)
+	w.WriteHeader(response.StatusCode)
 
 	// SAFETY: this is infallible.
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(response.ErrorResponseBody)
 }
 
-type successResponse struct {
-	AccessToken     string `json:"access_token"`
-	IssuedTokenType string `json:"issued_token_type"`
-	TokenType       string `json:"token_type"`
-	ExpiresIn       int    `json:"expires_in"`
-}
-
-func (h *tokenHandler) writeSuccess(w http.ResponseWriter, response *successResponse) {
+func (h *tokenHandler) writeSuccess(w http.ResponseWriter, response *protocol.SuccessResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
