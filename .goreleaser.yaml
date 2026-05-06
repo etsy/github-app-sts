@@ -9,6 +9,24 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
+  - main: ./cmd/github-app-sts-client
+    binary: github-app-sts-client
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+  - main: ./cmd/git-credential-github-app-sts
+    binary: git-credential-github-app-sts
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
 signs:
   - cmd: cosign
     args:
