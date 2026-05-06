@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/etsy/github-app-sts/compare/v2.0.0...v2.1.0) (2026-05-06)
+
+
+### Features
+
+* add CLI commands ([#20](https://github.com/etsy/github-app-sts/issues/20)) ([16b454e](https://github.com/etsy/github-app-sts/commit/16b454ef1847a72ba66050747f9f47b72acb8581))
+
 ## [2.0.0](https://github.com/etsy/github-app-sts/compare/v1.3.0...v2.0.0) (2026-03-30)
 
 
