@@ -1,6 +1,7 @@
 version: 2
 builds:
-  - main: ./cmd/github-app-sts-server
+  - id: github-app-sts-server
+    main: ./cmd/github-app-sts-server
     binary: github-app-sts-server
     env:
       - CGO_ENABLED=0
@@ -9,7 +10,8 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
-  - main: ./cmd/github-app-sts-client
+  - id: github-app-sts-client
+    main: ./cmd/github-app-sts-client
     binary: github-app-sts-client
     env:
       - CGO_ENABLED=0
@@ -18,7 +20,8 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
-  - main: ./cmd/git-credential-github-app-sts
+  - id: git-credential-github-app-sts
+    main: ./cmd/git-credential-github-app-sts
     binary: git-credential-github-app-sts
     env:
       - CGO_ENABLED=0
@@ -46,7 +49,9 @@ docker_signs:
     artifacts: all
 
 dockers_v2:
-  - images:
+  - ids:
+      - github-app-sts-server
+    images:
       - us-central1-docker.pkg.dev/etsy-github-tooling-prod/github-app-sts-binaries/github-app-sts-server
     dockerfile: Dockerfile
     tags:
