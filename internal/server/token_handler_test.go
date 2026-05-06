@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/etsy/github-app-sts/internal/protocol"
 	"github.com/etsy/github-app-sts/internal/server/github"
 	"github.com/etsy/github-app-sts/internal/server/sts"
 )
@@ -27,8 +28,8 @@ func (f *fakeExchanger) ExchangeToken(_ context.Context, _, _, _ string) (*sts.R
 
 func validFormValues() url.Values {
 	return url.Values{
-		"grant_type":         {expectedGrantType},
-		"subject_token_type": {expectedSubjectTokenType},
+		"grant_type":         {protocol.GrantType},
+		"subject_token_type": {protocol.SubjectTokenType},
 		"subject_token":      {"fake.jwt.token"},
 		"resource":           {"https://github.com/myorg/myrepo"},
 		"scope":              {"my-policy"},
@@ -270,8 +271,8 @@ func TestTokenHandler(t *testing.T) {
 					t.Errorf("token_type = %q, want %q", resp["token_type"], "Bearer")
 				}
 
-				if resp["issued_token_type"] != issuedTokenType {
-					t.Errorf("issued_token_type = %q, want %q", resp["issued_token_type"], issuedTokenType)
+				if resp["issued_token_type"] != protocol.IssuedTokenType {
+					t.Errorf("issued_token_type = %q, want %q", resp["issued_token_type"], protocol.IssuedTokenType)
 				}
 
 				if _, ok := resp["expires_in"]; !ok {
