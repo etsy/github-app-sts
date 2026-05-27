@@ -30,6 +30,20 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
+archives:
+  - id: github-app-sts-server
+    ids: [github-app-sts-server]
+    formats: [binary]
+    name_template: "github-app-sts-server-{{ .Os }}-{{ .Arch }}"
+  - id: github-app-sts-client
+    ids: [github-app-sts-client]
+    formats: [binary]
+    name_template: "github-app-sts-client-{{ .Os }}-{{ .Arch }}"
+  - id: git-credential-github-app-sts
+    ids: [git-credential-github-app-sts]
+    formats: [binary]
+    name_template: "git-credential-github-app-sts-{{ .Os }}-{{ .Arch }}"
+
 signs:
   - cmd: cosign
     args:
