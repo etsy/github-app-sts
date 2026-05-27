@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/etsy/github-app-sts/compare/v2.1.0...v2.1.1) (2026-05-27)
+
+
+### Miscellaneous Chores
+
+* release 2.1.1 with new goreleaser config ([5e3fb09](https://github.com/etsy/github-app-sts/commit/5e3fb09840a7dbd55693d9706c1ec2b55e7ba50e))
+
 ## [2.1.0](https://github.com/etsy/github-app-sts/compare/v2.0.0...v2.1.0) (2026-05-06)
 
 
