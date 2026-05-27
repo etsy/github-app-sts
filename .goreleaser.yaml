@@ -49,8 +49,8 @@ signs:
     args:
       - sign-blob
       - --yes
-      - --bundle
-      - '${artifact}.bundle'
+      - --output-signature
+      - '${signature}'
       - '${artifact}'
     artifacts: binary
 
