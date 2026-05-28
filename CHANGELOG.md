@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/etsy/github-app-sts/compare/v2.1.1...v2.1.2) (2026-05-28)
+
+
+### Bug Fixes
+
+* strip `.git` suffix ([#28](https://github.com/etsy/github-app-sts/issues/28)) ([f061040](https://github.com/etsy/github-app-sts/commit/f06104077d36b9ea9e877d2b107e6d88130bb1bd))
+
 ## [2.1.1](https://github.com/etsy/github-app-sts/compare/v2.1.0...v2.1.1) (2026-05-27)
 
 
