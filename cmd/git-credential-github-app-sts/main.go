@@ -73,6 +73,8 @@ func get(in []credentialAttribute) ([]credentialAttribute, error) {
 		return nil, fmt.Errorf("missing path in credential input")
 	}
 
+	path = strings.TrimSuffix(path, ".git")
+
 	resource := fmt.Sprintf("https://%s/%s", host, path)
 
 	ctx := context.Background()
