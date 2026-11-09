@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/etsy/github-app-sts/compare/v2.1.2...v2.1.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* update Go dependencies to fix CVEs ([#31](https://github.com/etsy/github-app-sts/issues/31)) ([5e8435f](https://github.com/etsy/github-app-sts/commit/5e8435f225492716d2eff8883df3c44c64fa81b7))
+
 ## [2.1.2](https://github.com/etsy/github-app-sts/compare/v2.1.1...v2.1.2) (2026-05-28)
 
 
